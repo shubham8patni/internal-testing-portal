@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Response Comparison - Internal Testing Portal</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Internal Testing Portal</h1>
+        <p style="margin: 5px 0 0; opacity: 0.9;">Target vs Staging Response Comparison</p>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                <h1>API Response Comparison</h1>
+                <a href="/static/execution.html" style="font-size: 14px;">← Back to Execution</a>
+            </div>
+
+            <div id="api-info" style="margin-bottom: 25px;">
+                <h3>API Call Information</h3>
+                <div id="api-details"></div>
+            </div>
+
+            <div class="comparison-panel">
+                <div class="comparison-box">
+                    <h3>Target Environment (DEV/QA)</h3>
+                    <pre id="target-response" style="background: #fafbfc; padding: 15px; border-radius: 6px; overflow-x: auto;"></pre>
+                </div>
+                <div class="comparison-box">
+                    <h3>Staging Environment</h3>
+                    <pre id="staging-response" style="background: #fafbfc; padding: 15px; border-radius: 6px; overflow-x: auto;"></pre>
+                </div>
+            </div>
+
+            <div id="differences" style="margin-top: 25px;">
+                <h3>Differences Found</h3>
+                <div id="differences-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Internal Testing Portal v1.0.0 | Powered by FastAPI</p>
+    </footer>
+
+    <script src="/static/js/comparison.js"></script>
+</body>
+</html>

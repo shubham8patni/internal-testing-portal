@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internal Testing Portal</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Internal Testing Portal</h1>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <h1>Welcome to Internal Testing Portal</h1>
+            <p style="margin-bottom: 30px; color: #666;">
+                Configuration-driven API sanity testing platform for insurance products.
+            </p>
+
+            <form id="session-form">
+                <div class="form-group">
+                    <label for="user-name">Session Name:</label>
+                    <input 
+                        type="text" 
+                        id="user-name" 
+                        name="user_name" 
+                        placeholder="Enter your session name"
+                        required
+                    >
+                </div>
+
+                <button type="submit">Create Session</button>
+            </form>
+
+            <div id="session-created" style="display: none; margin-top: 20px;">
+                <p style="color: #27ae60; font-weight: 600;">
+                    ✓ Session created successfully!
+                </p>
+                <p>
+                    Redirecting to configuration page...
+                </p>
+            </div>
+
+            <div id="error-message" style="display: none; margin-top: 20px;">
+                <p style="color: #e74c3c; font-weight: 600;"></p>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Internal Testing Portal v1.0.0 | Powered by FastAPI</p>
+    </footer>
+
+    <script>
+        document.getElementById('session-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userName = document.getElementById('user-name').value.trim();
+            
+            if (!userName) {
+                showError('Please enter a session name');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/session/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_name: userName
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    showSuccess();
+                    setTimeout(() => {
+                        window.location.href = `/config.html?session_id=${data.session_id}`;
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    showError(error.detail || 'Failed to create session');
+                }
+            } catch (error) {
+                showError('Error creating session. Please try again.');
+                console.error('Error:', error);
+            }
+        });
+
+        function showSuccess() {
+            document.getElementById('session-form').style.display = 'none';
+            document.getElementById('session-created').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.querySelector('p').textContent = message;
+            errorDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

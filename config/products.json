@@ -1,0 +1,57 @@
+{
+  "categories": {
+    "MV4": {
+      "name": "Car",
+      "products": {
+        "TOKIO_MARINE": {
+          "name": "Tokio Marine",
+          "plans": ["COMPREHENSIVE", "TOTAL_LOSS"]
+        },
+        "SOMPO": {
+          "name": "Sompo",
+          "plans": ["COMPREHENSIVE", "THIRD_PARTY"]
+        }
+      }
+    },
+    "MV2": {
+      "name": "Motorcycle",
+      "products": {
+        "TOKIO_MARINE": {
+          "name": "Tokio Marine",
+          "plans": ["COMPREHENSIVE", "THIRD_PARTY"]
+        }
+      }
+    },
+    "PET": {
+      "name": "Pet",
+      "products": {
+        "SOMPO": {
+          "name": "Sompo",
+          "plans": ["BASIC", "COMPREHENSIVE"]
+        }
+      }
+    },
+    "PA": {
+      "name": "Personal Accident",
+      "products": {
+        "ZURICH": {
+          "name": "Zurich",
+          "plans": ["SILVER", "GOLD", "PLATINUM"]
+        }
+      }
+    },
+    "TRAVEL": {
+      "name": "Travel",
+      "products": {
+        "SOMPO": {
+          "name": "Sompo",
+          "plans": ["TRAVEL_COMPREHENSIVE", "TRAVEL_BASIC"]
+        },
+        "ZURICH": {
+          "name": "Zurich",
+          "plans": ["TRAVEL_PREMIUM", "TRAVEL_STANDARD"]
+        }
+      }
+    }
+  }
+}

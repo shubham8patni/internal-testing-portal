@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session History - Internal Testing Portal</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Internal Testing Portal</h1>
+        <p style="margin: 5px 0 0; opacity: 0.9;">Test Execution History & Audit Trail</p>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <h1>Session History</h1>
+            <p style="margin-bottom: 25px; color: #666;">
+                View all past test executions for audit and historical analysis.
+            </p>
+
+            <div id="loading" style="text-align: center; padding: 40px;">
+                <p>Loading sessions...</p>
+            </div>
+
+            <div id="sessions-table-container" style="display: none;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session ID</th>
+                            <th>User Name</th>
+                            <th>Created At</th>
+                            <th>Status</th>
+                            <th>Executions</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-tbody">
+                        <!-- Sessions will be dynamically loaded -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="error-message" style="display: none; margin-top: 20px;">
+                <p style="color: #ef473a; font-weight: 600;"></p>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                <a href="/static/index.html">← Create New Session</a>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Internal Testing Portal v1.0.0 | Powered by FastAPI</p>
+    </footer>
+
+    <script src="/static/js/history.js"></script>
+</body>
+</html>
