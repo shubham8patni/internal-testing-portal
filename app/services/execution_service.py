@@ -138,9 +138,23 @@ class ExecutionService:
             Executes sequentially as per PRD requirements.
         """
         try:
+            logger.info(f"[EXECUTION] ===========================================")
+            logger.info(f"[EXECUTION] Starting execution_all_tabs for {execution_id}")
+            logger.info(f"[EXECUTION] Session ID: {session_id}")
+            logger.info(f"[EXECUTION] Categories: {categories}")
+            logger.info(f"[EXECUTION] Admin Token: {'Provided' if admin_token else 'Not provided'}")
+            logger.info(f"[EXECUTION] Customer Token: {'Provided' if customer_token else 'Not provided'}")
+            logger.info(f"[EXECUTION] ===========================================")
+
             combinations = self.config_service.get_all_combinations(
                 categories if categories != ["all"] else None
             )
+            logger.info(f"[EXECUTION] Generated {len(combinations)} combinations")
+            logger.info(f"[EXECUTION] Combinations: {combinations}")
+
+            if not combinations or len(combinations) == 0:
+                logger.error(f"[EXECUTION] No combinations generated for {categories}")
+                raise ValueError(f"No Category+Product+Plan combinations found for categories: {categories}")
 
             all_api_calls = []
             all_comparisons = []
@@ -152,53 +166,87 @@ class ExecutionService:
                     f"{combination['plan_id']}"
                 )
 
-                logger.info(
-                    f"Executing tab {i+1}/{len(combinations)}: {tab_id}"
-                )
+                logger.info(f"[EXECUTION] Tab {i+1}/{len(combinations)}: {tab_id}")
+                logger.info(f"[EXECUTION] Combination: {combination}")
 
-                api_calls = self._execute_tab(
-                    execution_id=execution_id,
-                    tab_id=tab_id,
-                    combination=combination,
-                    admin_token=admin_token,
-                    customer_token=customer_token
-                )
+                try:
+                    logger.info(f"[EXECUTION] Calling _execute_tab for {tab_id}")
+                    api_calls = self._execute_tab(
+                        execution_id=execution_id,
+                        tab_id=tab_id,
+                        combination=combination,
+                        admin_token=admin_token,
+                        customer_token=customer_token
+                    )
+                    logger.info(f"[EXECUTION] Tab {tab_id} executed with {len(api_calls)} API calls")
+                except Exception as e:
+                    logger.error(f"[EXECUTION] Failed to execute tab {tab_id}: {e}", exc_info=True)
+                    raise
 
-                comparisons = self._compare_tab_results(
-                    execution_id=execution_id,
-                    api_calls=api_calls
-                )
+                try:
+                    logger.info(f"[EXECUTION] Calling _compare_tab_results for {tab_id}")
+                    comparisons = self._compare_tab_results(
+                        execution_id=execution_id,
+                        api_calls=api_calls
+                    )
+                    logger.info(f"[EXECUTION] Tab {tab_id} compared with {len(comparisons)} comparisons")
+                except Exception as e:
+                    logger.error(f"[EXECUTION] Failed to compare tab {tab_id}: {e}", exc_info=True)
+                    raise
 
                 all_api_calls.extend(api_calls)
                 all_comparisons.extend(comparisons)
 
-                self._update_execution_progress(
+                try:
+                    logger.info(f"[EXECUTION] Updating progress for {execution_id}")
+                    self._update_execution_progress(
+                        execution_id=execution_id,
+                        api_calls=all_api_calls,
+                        comparisons=all_comparisons,
+                        completed_tabs=i + 1,
+                        total_tabs=len(combinations)
+                    )
+                    logger.info(f"[EXECUTION] Updated progress: {i+1}/{len(combinations)} tabs completed")
+                except Exception as e:
+                    logger.error(f"[EXECUTION] Failed to update progress for {execution_id}: {e}", exc_info=True)
+                    raise
+
+            try:
+                logger.info(f"[EXECUTION] Reading execution data for report generation")
+                execution_data = self.storage.read_execution(execution_id)
+                logger.info(f"[EXECUTION] Generating report for {execution_id}")
+                report = self.reporter.generate_execution_report(
+                    execution_id=execution_id,
+                    execution_data=execution_data,
+                    comparisons=[c.dict() if hasattr(c, 'dict') else c for c in all_comparisons]
+                )
+                logger.info(f"[EXECUTION] Report generated for {execution_id}")
+            except Exception as e:
+                logger.error(f"[EXECUTION] Failed to generate report for {execution_id}: {e}", exc_info=True)
+                raise
+
+            try:
+                logger.info(f"[EXECUTION] Finalizing execution for {execution_id}")
+                self._finalize_execution(
                     execution_id=execution_id,
                     api_calls=all_api_calls,
                     comparisons=all_comparisons,
-                    completed_tabs=i + 1,
-                    total_tabs=len(combinations)
+                    report=report.dict() if hasattr(report, 'dict') else report
                 )
-
-            report = self.reporter.generate_execution_report(
-                execution_id=execution_id,
-                execution_data=self.storage.read_execution(execution_id),
-                comparisons=[c.dict() if hasattr(c, 'dict') else c for c in all_comparisons]
-            )
-
-            self._finalize_execution(
-                execution_id=execution_id,
-                api_calls=all_api_calls,
-                comparisons=all_comparisons,
-                report=report.dict() if hasattr(report, 'dict') else report
-            )
+                logger.info(f"[EXECUTION] Execution finalized for {execution_id}")
+            except Exception as e:
+                logger.error(f"[EXECUTION] Failed to finalize execution {execution_id}: {e}", exc_info=True)
+                raise
 
             self.session_service.update_session_status(session_id, "completed")
-
-            logger.info(f"Execution completed: {execution_id}")
-
+            logger.info(f"[EXECUTION] ===========================================")
+            logger.info(f"[EXECUTION] Execution completed successfully: {execution_id}")
+            logger.info(f"[EXECUTION] Total API calls: {len(all_api_calls)}")
+            logger.info(f"[EXECUTION] Total comparisons: {len(all_comparisons)}")
+            logger.info(f"[EXECUTION] ===========================================")
         except Exception as e:
-            logger.error(f"Failed to execute all tabs: {e}", exc_info=True)
+            logger.error(f"[EXECUTION] execute_all_tabs failed for {execution_id}: {e}", exc_info=True)
+            logger.error(f"[EXECUTION] Marking execution as failed")
             self._mark_execution_failed(execution_id)
             raise
 
@@ -225,8 +273,16 @@ class ExecutionService:
         """
         api_calls = []
 
+        logger.info(f"[EXECUTION-TAB] ===========================================")
+        logger.info(f"[EXECUTION-TAB] Executing tab {tab_id} across 3 environments (DEV, QA, STAGING)")
+        logger.info(f"[EXECUTION-TAB] Combination: {combination}")
+        logger.info(f"[EXECUTION-TAB] ===========================================")
+
         for environment in ["DEV", "QA", "STAGING"]:
             try:
+                logger.info(f"[EXECUTION-TAB] Starting {tab_id} in {environment}")
+                logger.info(f"[EXECUTION-TAB] API Executor: {type(self.api_executor)}")
+
                 calls = self.api_executor.execute_7_step_flow(
                     execution_id=execution_id,
                     tab_id=tab_id,
@@ -237,17 +293,24 @@ class ExecutionService:
                     admin_token=admin_token,
                     customer_token=customer_token
                 )
+                logger.info(f"[EXECUTION-TAB] Completed {tab_id} in {environment}: {len(calls)} API calls")
 
                 api_calls.extend([
                     call.dict() if hasattr(call, 'dict') else call
                     for call in calls
                 ])
+                logger.info(f"[EXECUTION-TAB] Total API calls so far: {len(api_calls)}")
 
             except Exception as e:
                 logger.error(
-                    f"Failed to execute tab {tab_id} in {environment}: {e}",
+                    f"[EXECUTION-TAB] Failed to execute tab {tab_id} in {environment}: {e}",
                     exc_info=True
                 )
+                raise
+
+        logger.info(f"[EXECUTION-TAB] ===========================================")
+        logger.info(f"[EXECUTION-TAB] Tab {tab_id} completed with total {len(api_calls)} API calls")
+        logger.info(f"[EXECUTION-TAB] ===========================================")
 
         return api_calls
 
@@ -268,17 +331,27 @@ class ExecutionService:
         """
         comparisons = []
 
+        logger.info(f"[COMPARE] ===========================================")
+        logger.info(f"[COMPARE] Comparing tab results for execution: {execution_id}")
+        logger.info(f"[COMPARE] Total API calls to compare: {len(api_calls)}")
+
         dev_calls = [c for c in api_calls if c["environment"] == "DEV"]
         qa_calls = [c for c in api_calls if c["environment"] == "QA"]
         staging_calls = [c for c in api_calls if c["environment"] == "STAGING"]
 
+        logger.info(f"[COMPARE] DEV calls: {len(dev_calls)}")
+        logger.info(f"[COMPARE] QA calls: {len(qa_calls)}")
+        logger.info(f"[COMPARE] STAGING calls: {len(staging_calls)}")
+
         for dev_call in dev_calls:
+            logger.info(f"[COMPARE] Comparing DEV call: {dev_call.get('api_step')}")
             staging_call = self._find_matching_call(
                 dev_call,
                 staging_calls
             )
 
             if staging_call:
+                logger.info(f"[COMPARE] Found matching STAGING call for: {dev_call.get('api_step')}")
                 comparison = self.comparison_service.compare_api_calls(
                     execution_id=execution_id,
                     target_call=dev_call,
@@ -287,14 +360,19 @@ class ExecutionService:
                 comparisons.append(
                     comparison[0].dict() if hasattr(comparison[0], 'dict') else comparison[0]
                 )
+                logger.info(f"[COMPARE] Added comparison for: {dev_call.get('api_step')}")
+            else:
+                logger.warning(f"[COMPARE] No matching STAGING call found for: {dev_call.get('api_step')}")
 
         for qa_call in qa_calls:
+            logger.info(f"[COMPARE] Comparing QA call: {qa_call.get('api_step')}")
             staging_call = self._find_matching_call(
                 qa_call,
                 staging_calls
             )
 
             if staging_call:
+                logger.info(f"[COMPARE] Found matching STAGING call for: {qa_call.get('api_step')}")
                 comparison = self.comparison_service.compare_api_calls(
                     execution_id=execution_id,
                     target_call=qa_call,
@@ -303,6 +381,12 @@ class ExecutionService:
                 comparisons.append(
                     comparison[0].dict() if hasattr(comparison[0], 'dict') else comparison[0]
                 )
+                logger.info(f"[COMPARE] Added comparison for: {qa_call.get('api_step')}")
+            else:
+                logger.warning(f"[COMPARE] No matching STAGING call found for: {qa_call.get('api_step')}")
+
+        logger.info(f"[COMPARE] Total comparisons generated: {len(comparisons)}")
+        logger.info(f"[COMPARE] ===========================================")
 
         return comparisons
 
@@ -326,15 +410,30 @@ class ExecutionService:
         total_tabs: int
     ):
         """Update execution progress."""
+        logger.info(f"[PROGRESS] ===========================================")
+        logger.info(f"[PROGRESS] Updating progress for execution: {execution_id}")
+        logger.info(f"[PROGRESS] Completed tabs: {completed_tabs}/{total_tabs}")
+        logger.info(f"[PROGRESS] API calls to save: {len(api_calls)}")
+        logger.info(f"[PROGRESS] Comparisons to save: {len(comparisons)}")
+
         execution_data = self.storage.read_execution(execution_id)
 
+        logger.info(f"[PROGRESS] Execution data read: {execution_data is not None}")
+
         if execution_data:
+            logger.info(f"[PROGRESS] Updating execution data fields")
             execution_data["api_calls"] = api_calls
             execution_data["comparisons"] = comparisons
             execution_data["completed_tabs"] = completed_tabs
             execution_data["total_tabs"] = total_tabs
 
+            logger.info(f"[PROGRESS] Writing updated execution data to storage")
             self.storage.write_execution(execution_id, execution_data)
+            logger.info(f"[PROGRESS] Progress updated successfully")
+        else:
+            logger.error(f"[PROGRESS] Execution data is None for {execution_id}")
+
+        logger.info(f"[PROGRESS] ===========================================")
 
     def _finalize_execution(
         self,

@@ -72,25 +72,45 @@ async def start_execution(
     """
     try:
         execution = execution_service.start_execution(request)
+        execution_id = execution.execution_id
 
-        asyncio.create_task(
-            execution_service.execute_all_tabs(
-                execution_id=execution.execution_id,
-                session_id=request.session_id,
-                categories=request.categories if request.categories else ["all"],
-                admin_token=request.admin_auth_token,
-                customer_token=request.customer_auth_token
-            )
-        )
+        async def background_execution():
+            try:
+                logger.info(f"Background task starting for execution: {execution_id}")
+                await execution_service.execute_all_tabs(
+                    execution_id=execution_id,
+                    session_id=request.session_id,
+                    categories=request.categories if request.categories else ["all"],
+                    admin_token=request.admin_auth_token,
+                    customer_token=request.customer_auth_token
+                )
+                logger.info(f"Background task completed successfully: {execution_id}")
+            except Exception as e:
+                logger.error(f"Background task failed for {execution_id}: {e}", exc_info=True)
+                execution_service._mark_execution_failed(execution_id)
 
-        logger.info(f"Execution started: {execution.execution_id}")
+        logger.info(f"Execution started: {execution_id}")
+
+        logger.info(f"[DEBUG] Creating background task for execution: {execution_id}")
+        try:
+            task = asyncio.create_task(background_execution())
+            logger.info(f"[DEBUG] Background task created successfully: {task}")
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to create background task: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Failed to start background execution: {str(e)}")
+
+        logger.info(f"[DEBUG] Returning response to client, execution: {execution_id}")
         return {
-            "execution_id": execution.execution_id,
+            "execution_id": execution_id,
             "status": "in_progress",
             "message": "Execution started in background"
         }
     except ValueError as e:
         logger.warning(f"Session not found: {request.session_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to start execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to start execution: {e}", exc_info=True)

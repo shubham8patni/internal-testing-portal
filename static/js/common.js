@@ -60,6 +60,8 @@ function createStatusBadge(status) {
 // API Call Function
 async function apiCall(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`[API] Requesting: ${endpoint}`);
+    console.log(`[API] Full URL: ${url}`);
     
     const defaultOptions = {
         headers: {
@@ -68,18 +70,24 @@ async function apiCall(endpoint, options = {}) {
     };
     
     const finalOptions = { ...defaultOptions, ...options };
+    console.log('[API] Request options:', finalOptions);
     
     try {
         const response = await fetch(url, finalOptions);
+        console.log(`[API] Response status: ${response.status} ${response.statusText}`);
+
         const data = await response.json();
+        console.log('[API] Response data:', data);
         
         if (!response.ok) {
+            console.error(`[API] HTTP Error: ${response.status}`, data);
             throw new Error(data.detail || `HTTP ${response.status}`);
         }
         
         return data;
     } catch (error) {
-        console.error('API Error:', error);
+        console.error('[API] Exception caught:', error);
+        console.error('[API] Error stack:', error.stack);
         throw error;
     }
 }

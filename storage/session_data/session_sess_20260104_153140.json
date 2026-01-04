@@ -1,8 +1,8 @@
 {
-  "session_id": "sess_20260104_121602",
-  "user_name": "SP",
-  "created_at": "2026-01-04T12:16:02.497471",
-  "status": "completed",
+  "session_id": "sess_20260104_153140",
+  "user_name": "sd",
+  "created_at": "2026-01-04T15:31:40.547903",
+  "status": "active",
   "config": {
     "categories": [
       "MV4"
@@ -11,7 +11,7 @@
     "customer_auth_token": null
   },
   "executions": [
-    "SP_20260104_121611"
+    "sd_20260104_153149"
   ],
   "execution_count": 1
 }

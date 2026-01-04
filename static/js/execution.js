@@ -1,11 +1,20 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('[DEBUG] ==========================================');
+    console.log('[DEBUG] Execution page DOMContentLoaded fired');
+    console.log('[DEBUG] ==========================================');
+
     const urlParams = window.testingPortal.getURLParams();
+    console.log('[DEBUG] URL params object:', urlParams);
     const sessionId = urlParams.get('session_id');
-    
+    console.log('[DEBUG] Session ID extracted from URL:', sessionId);
+
     if (!sessionId) {
+        console.error('[ERROR] Session ID not found in URL params');
         window.testingPortal.showError('Session ID not found. Please start from landing page.');
         return;
     }
+
+    console.log('[DEBUG] Session ID validation passed, initializing...');
 
     let pollingInterval = null;
     let currentTabId = null;
@@ -13,44 +22,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load tabs
     async function loadTabs() {
         try {
+            console.log('[DEBUG] Loading tabs for session:', sessionId);
             const data = await window.testingPortal.apiCall(`/api/execution/tabs/${sessionId}`);
+            console.log('[DEBUG] API response:', data);
             const tabs = data.tabs;
-            
+            console.log('[DEBUG] Tabs loaded:', tabs);
+            console.log('[DEBUG] Number of tabs:', tabs ? tabs.length : 0);
+
             const tabsHeader = document.getElementById('tabs-header');
+            console.log('[DEBUG] Tabs header element:', tabsHeader);
+
+            if (!tabsHeader) {
+                console.error('[ERROR] tabs-header element not found!');
+                return;
+            }
+
             tabsHeader.innerHTML = '';
-            
-            if (tabs.length === 0) {
+
+            if (!tabs || tabs.length === 0) {
+                console.warn('[WARN] No tabs found in response');
                 tabsHeader.innerHTML = '<p style="color: #666;">No tabs found. Start a new test execution.</p>';
                 return;
             }
-            
-            tabs.forEach(tab => {
+
+            tabs.forEach((tab, index) => {
+                console.log(`[DEBUG] Creating tab ${index + 1}:`, tab);
                 const tabElement = document.createElement('div');
                 tabElement.className = `tab ${currentTabId === tab.tab_id ? 'active' : ''}`;
                 tabElement.textContent = `${tab.tab_id}`;
                 tabElement.onclick = () => selectTab(tab.tab_id);
                 tabsHeader.appendChild(tabElement);
+                console.log(`[DEBUG] Tab ${index + 1} appended to DOM`);
             });
-            
+
+            console.log('[DEBUG] All tabs rendered. Total tabs in DOM:', tabsHeader.children.length);
+
             // Select first tab if none selected
             if (!currentTabId && tabs.length > 0) {
+                console.log('[DEBUG] Auto-selecting first tab:', tabs[0].tab_id);
                 selectTab(tabs[0].tab_id);
             }
         } catch (error) {
-            console.error('Error loading tabs:', error);
+            console.error('[ERROR] Error loading tabs:', error);
+            console.error('[ERROR] Error stack:', error.stack);
             window.testingPortal.showError('Failed to load tabs');
         }
     }
 
     // Select tab and load progress
     async function selectTab(tabId) {
+        console.log('[DEBUG] selectTab called with tabId:', tabId);
         currentTabId = tabId;
         
         // Update tab styling
-        document.querySelectorAll('.tab').forEach(tab => {
+        const allTabs = document.querySelectorAll('.tab');
+        console.log('[DEBUG] Found tabs in DOM:', allTabs.length);
+        allTabs.forEach(tab => {
             tab.classList.remove('active');
         });
-        event.target.classList.add('active');
+
+        // Find the clicked tab element
+        const clickedTab = document.querySelector(`.tab`)?.[0];
+        if (!clickedTab) {
+            console.error('[ERROR] No tab elements found in DOM');
+            return;
+        }
+
+        clickedTab.classList.add('active');
+        console.log('[DEBUG] Tab activated:', tabId);
         
         // Load tab progress
         await loadTabProgress(tabId);
@@ -106,8 +145,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load overall status
     async function loadOverallStatus() {
         try {
+            console.log('[DEBUG] Loading overall status for session:', sessionId);
             const data = await window.testingPortal.apiCall(`/api/execution/status/${sessionId}`);
+            console.log('[DEBUG] Overall status response:', data);
             const statusDiv = document.getElementById('overall-status');
+            
+            if (!statusDiv) {
+                console.error('[ERROR] overall-status element not found!');
+                return;
+            }
             
             statusDiv.innerHTML = `
                 <div>
@@ -121,8 +167,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <span>In Progress: ${data.in_progress_executions}</span>
                 </div>
             `;
+            console.log('[DEBUG] Overall status rendered');
         } catch (error) {
-            console.error('Error loading status:', error);
+            console.error('[ERROR] Error loading overall status:', error);
+            console.error('[ERROR] Error stack:', error.stack);
         }
     }
 
