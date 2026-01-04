@@ -1,0 +1,17 @@
+{
+  "session_id": "sess_20260104_130503",
+  "user_name": "sp3",
+  "created_at": "2026-01-04T13:05:03.332272",
+  "status": "active",
+  "config": {
+    "categories": [
+      "MV4"
+    ],
+    "admin_auth_token": null,
+    "customer_auth_token": null
+  },
+  "executions": [
+    "sp3_20260104_130509"
+  ],
+  "execution_count": 1
+}

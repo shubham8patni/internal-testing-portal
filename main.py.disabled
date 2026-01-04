@@ -3,8 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from app.api.routes import session_routes, config_routes, report_routes, execution_routes
-from app.core.logging import setup_logging
+from app.api.routes import session_routes, config_routes, report_routes
 
 app = FastAPI(
     title="Internal Testing Portal",
@@ -24,7 +23,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(session_routes.router)
 app.include_router(config_routes.router)
-app.include_router(execution_routes.router)
+# app.include_router(execution_routes.router)  # Temporarily disabled to test
 app.include_router(report_routes.router)
 
 @app.get("/")
@@ -63,7 +62,6 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Application startup"""
-    setup_logging()
     print("Internal Testing Portal starting up...")
 
 @app.on_event("shutdown")

@@ -1,0 +1,317 @@
+"""Execution API Routes
+
+Endpoints:
+- POST /api/execution/start - Start test execution
+- GET /api/execution/status/{session_id} - Get overall status
+- GET /api/execution/tabs/{session_id} - Get all tabs
+- GET /api/execution/progress/{session_id}/{tab_id} - Get tab progress
+- GET /api/execution/{session_id}/api-call/{call_id} - Get API call details
+- GET /api/execution/{session_id}/comparison/{call_id} - Get comparison results
+"""
+
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Dict, Any
+import logging
+import asyncio
+
+from app.schemas.execution import (
+    ExecutionStartRequest,
+    ExecutionStatusResponse,
+    TabsListResponse,
+    TabProgressResponse
+)
+from app.schemas.comparison import APICallDetails, ComparisonResponse
+from app.services.execution_service import ExecutionService
+from app.services.storage_service import StorageService
+from app.services.session_service import SessionService
+from app.services.config_service import ConfigService
+from app.services.api_executor import APIExecutorService
+from app.services.comparison_service import ComparisonService
+from app.services.llm_reporter import LLMReporterService
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/execution", tags=["execution"])
+
+
+def get_execution_service() -> ExecutionService:
+    """Dependency injection for ExecutionService."""
+    storage_service = StorageService()
+    session_service = SessionService()
+    config_service = ConfigService()
+    api_executor = APIExecutorService()
+    comparison_service = ComparisonService()
+    llm_reporter = LLMReporterService()
+
+    return ExecutionService(
+        storage_service=storage_service,
+        session_service=session_service,
+        config_service=config_service,
+        api_executor=api_executor,
+        comparison_service=comparison_service,
+        llm_reporter=llm_reporter
+    )
+
+
+@router.post("/start", status_code=202)
+async def start_execution(
+    request: ExecutionStartRequest,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Start a new test execution.
+
+    Args:
+        request: Execution start request with session_id, categories, auth tokens
+
+    Returns:
+        Execution details
+
+    Raises:
+        HTTPException: If session not found (404)
+    """
+    try:
+        execution = execution_service.start_execution(request)
+
+        asyncio.create_task(
+            execution_service.execute_all_tabs(
+                execution_id=execution.execution_id,
+                session_id=request.session_id,
+                categories=request.categories if request.categories else ["all"],
+                admin_token=request.admin_auth_token,
+                customer_token=request.customer_auth_token
+            )
+        )
+
+        logger.info(f"Execution started: {execution.execution_id}")
+        return {
+            "execution_id": execution.execution_id,
+            "status": "in_progress",
+            "message": "Execution started in background"
+        }
+    except ValueError as e:
+        logger.warning(f"Session not found: {request.session_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to start execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/status/{session_id}", response_model=ExecutionStatusResponse)
+async def get_execution_status(
+    session_id: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get overall execution status for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Overall status with counts
+
+    Raises:
+        HTTPException: If session not found (404)
+    """
+    try:
+        status = execution_service.get_execution_status(session_id)
+        return status
+    except ValueError as e:
+        logger.warning(f"Session not found: {session_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get execution status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tabs/{session_id}", response_model=TabsListResponse)
+async def get_execution_tabs(
+    session_id: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get all tabs (Category+Product+Plan combinations) for a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        List of tabs with status
+
+    Raises:
+        HTTPException: If session not found (404)
+    """
+    try:
+        tabs = execution_service.get_execution_tabs(session_id)
+        return tabs
+    except ValueError as e:
+        logger.warning(f"Session not found: {session_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get execution tabs: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/progress/{session_id}/{tab_id}", response_model=TabProgressResponse)
+async def get_tab_progress(
+    session_id: str,
+    tab_id: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get progress for a specific tab.
+
+    Args:
+        session_id: Session identifier
+        tab_id: Tab identifier
+
+    Returns:
+        Tab progress with API calls
+
+    Raises:
+        HTTPException: If session or tab not found (404)
+    """
+    try:
+        progress = execution_service.get_tab_progress(session_id, tab_id)
+        return progress
+    except ValueError as e:
+        logger.warning(f"Session or tab not found: {session_id}/{tab_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get tab progress: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{session_id}/api-call/{call_id}", response_model=APICallDetails)
+async def get_api_call(
+    session_id: str,
+    call_id: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get API call details.
+
+    Args:
+        session_id: Session identifier
+        call_id: API call identifier
+
+    Returns:
+        API call details with request and response
+
+    Raises:
+        HTTPException: If API call not found (404)
+    """
+    try:
+        session = execution_service.session_service.get_session(session_id)
+
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        api_calls = []
+
+        for execution_id in session.executions:
+            execution_data = execution_service.storage.read_execution(execution_id)
+
+            if execution_data:
+                api_calls.extend(execution_data.get("api_calls", []))
+
+        api_call = None
+
+        for call in api_calls:
+            if call.get("call_id") == call_id:
+                api_call = call
+                break
+
+        if not api_call:
+            logger.warning(f"API call not found: {call_id}")
+            raise HTTPException(status_code=404, detail="API call not found")
+
+        return APICallDetails(
+            call_id=api_call["call_id"],
+            api_step=api_call["api_step"],
+            environment=api_call["environment"],
+            endpoint=api_call["endpoint"],
+            request_payload=api_call.get("request_payload"),
+            response_data=api_call.get("response_data"),
+            status_code=api_call.get("status_code"),
+            execution_time_ms=api_call.get("execution_time_ms"),
+            error=api_call.get("error")
+        )
+
+    except ValueError as e:
+        logger.warning(f"Resource not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get API call: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{session_id}/comparison/{call_id}", response_model=ComparisonResponse)
+async def get_comparison(
+    session_id: str,
+    call_id: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get comparison results for an API call.
+
+    Args:
+        session_id: Session identifier
+        call_id: API call identifier
+
+    Returns:
+        Comparison results with differences
+
+    Raises:
+        HTTPException: If comparison not found (404)
+    """
+    try:
+        session = execution_service.session_service.get_session(session_id)
+
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+
+        comparisons = []
+
+        for execution_id in session.executions:
+            execution_data = execution_service.storage.read_execution(execution_id)
+
+            if execution_data:
+                comparisons.extend(execution_data.get("comparisons", []))
+
+        comparison = None
+
+        for comp in comparisons:
+            if comp.get("comparison_id", "").startswith(f"cmp_{execution_id}"):
+                comparison = comp
+                break
+
+        if not comparison:
+            for comp in comparisons:
+                call_id_parts = call_id.split("_")
+                if any(part in comp.get("comparison_id", "") for part in call_id_parts):
+                    comparison = comp
+                    break
+
+        if not comparison:
+            logger.warning(f"Comparison not found for call: {call_id}")
+            raise HTTPException(status_code=404, detail="Comparison not found")
+
+        return ComparisonResponse(
+            comparison_id=comparison.get("comparison_id"),
+            call_id=call_id,
+            target_environment=comparison.get("target_environment"),
+            staging_environment=comparison.get("staging_environment"),
+            target_response=comparison.get("target_response"),
+            staging_response=comparison.get("staging_response"),
+            differences=comparison.get("differences", []),
+            summary=comparison.get("summary", {})
+        )
+
+    except ValueError as e:
+        logger.warning(f"Resource not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get comparison: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

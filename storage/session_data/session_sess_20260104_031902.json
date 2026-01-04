@@ -1,0 +1,20 @@
+{
+  "session_id": "sess_20260104_031902",
+  "user_name": "sd",
+  "created_at": "2026-01-04T03:19:02.289040",
+  "status": "completed",
+  "config": {
+    "categories": [
+      "MV4"
+    ],
+    "admin_auth_token": null,
+    "customer_auth_token": null
+  },
+  "executions": [
+    "sd_20260104_093748",
+    "sd_20260104_093750",
+    "sd_20260104_120614",
+    "sd_20260104_120757"
+  ],
+  "execution_count": 4
+}

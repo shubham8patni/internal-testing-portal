@@ -1,0 +1,15 @@
+{
+  "execution_id": "sp2_20260104_130408",
+  "session_id": "sess_20260104_130401",
+  "session_name": "sp2",
+  "type": "single",
+  "category": "MV4",
+  "status": "failed",
+  "timestamp": "2026-01-04T13:04:08.870252",
+  "api_calls": [],
+  "comparisons": [],
+  "reports": {},
+  "has_failures": false,
+  "total_tabs": 4,
+  "completed_tabs": 0
+}
