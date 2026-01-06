@@ -163,6 +163,12 @@ button:disabled:hover {
     box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
 }
 
+.status-can-not-proceed {
+    background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(189, 195, 199, 0.3);
+}
+
 .tab-container {
     margin-top: 30px;
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.5) 100%);
@@ -241,6 +247,11 @@ button:disabled:hover {
 .api-item.in-progress {
     border-left-color: #f093fb;
     background: linear-gradient(135deg, #e0c3fc 0%, #ffffff 100%);
+}
+
+.api-item.can_not_proceed {
+    border-left-color: #95a5a6;
+    background: linear-gradient(135deg, #ecf0f1 0%, #ffffff 100%);
 }
 
 .api-header {

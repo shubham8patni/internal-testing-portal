@@ -144,15 +144,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const status = executionProgress[step] || 'pending';
                 hasAnyProgress = hasAnyProgress || (status !== 'pending');
 
-                const statusClass = status === 'succeed' ? 'completed' : status === 'failed' ? 'failed' : 'pending';
-                const statusIcon = status === 'succeed' ? '✓' : status === 'failed' ? '✗' : '○';
-                const statusText = status.toUpperCase();
+                let statusClass, statusIcon, statusText;
+
+                if (status === 'succeed') {
+                    statusClass = 'completed';
+                    statusIcon = '✓';
+                    statusText = 'SUCCEED';
+                } else if (status === 'failed') {
+                    statusClass = 'failed';
+                    statusIcon = '✗';
+                    statusText = 'FAILED';
+                } else if (status === 'can_not_proceed') {
+                    statusClass = 'can_not_proceed';
+                    statusIcon = '⊘';
+                    statusText = 'CAN NOT PROCEED';
+                } else {
+                    statusClass = 'pending';
+                    statusIcon = '○';
+                    statusText = 'PENDING';
+                }
 
                 html += `
                     <div class="api-item ${statusClass}">
                         <div class="api-header">
                             <span class="api-name">${step.replace('_', ' ').toUpperCase()}</span>
-                            <span class="status-badge ${statusClass === 'completed' ? 'status-completed' : statusClass === 'failed' ? 'status-failed' : 'status-pending'}">
+                            <span class="status-badge ${statusClass === 'completed' ? 'status-completed' : statusClass === 'failed' ? 'status-failed' : statusClass === 'can_not_proceed' ? 'status-can-not-proceed' : 'status-pending'}">
                                 ${statusIcon} ${statusText}
                             </span>
                         </div>

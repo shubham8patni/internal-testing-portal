@@ -91,8 +91,9 @@ class APIExecutorService:
 
             execution_time_ms = int((time.time() - start_time) * 1000)
 
-            status_code = 200
-            error = None
+            # Check response status - dummy responses can indicate failures
+            status_code = response.get("status_code", 200)
+            error = response.get("error") if status_code != 200 else None
 
             api_call = APICall(
                 call_id=call_id,

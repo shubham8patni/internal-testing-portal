@@ -774,60 +774,76 @@ class ExecutionService:
 
         executions_progress = {}
 
+        # Define all API steps in order
+        all_steps = [
+            "application_submit",
+            "apply_coupon",
+            "payment_checkout",
+            "admin_policy_list",
+            "admin_policy_details",
+            "customer_policy_list",
+            "customer_policy_details"
+        ]
+
         # Get progress for each execution
         for execution_id in session.executions:
             try:
                 execution_data = self.storage.read_execution(execution_id)
                 if execution_data:
-                    # Extract API call statuses for target environment only
-                    api_progress = {}
                     api_calls = execution_data.get("api_calls", [])
 
-                    # Group calls by api_step and get target environment status
+                    # Create progress map for all steps
+                    api_progress = {}
+
+                    # Find the step that failed (first failed target env call)
+                    failed_step_name = None
                     for call in api_calls:
-                        if call.get("environment") != "STAGING":  # Only target env
-                            api_step = call.get("api_step", "")
-                            status_code = call.get("status_code", 500)
+                        if (call.get('environment') != 'STAGING' and
+                            call.get('status_code', 200) != 200):
+                            failed_step_name = call.get('api_step')
+                            break
 
-                            # Map status codes to progress states
+                    # Get the index of the failed step in our ordered list
+                    failed_step_index = None
+                    if failed_step_name:
+                        failed_step_index = all_steps.index(failed_step_name)
+
+                    # Process each step
+                    for step_index, step in enumerate(all_steps):
+                        # Find the call for this step (target environment only)
+                        call = None
+                        for api_call in api_calls:
+                            if (api_call.get('api_step') == step and
+                                api_call.get('environment') != 'STAGING'):
+                                call = api_call
+                                break
+
+                        if call:
+                            # Step was executed
+                            status_code = call.get('status_code', 200)
                             if status_code == 200:
-                                status = "succeed"
-                            elif call.get("error"):
-                                status = "failed"
+                                api_progress[step] = "succeed"
                             else:
-                                status = "running"  # In progress
-
-                            api_progress[api_step] = status
-
-                    # Fill in missing steps as "pending"
-                    all_steps = [
-                        "application_submit", "apply_coupon", "payment_checkout",
-                        "admin_policy_list", "admin_policy_details",
-                        "customer_policy_list", "customer_policy_details"
-                    ]
-
-                    for step in all_steps:
-                        if step not in api_progress:
-                            api_progress[step] = "pending"
+                                api_progress[step] = "failed"
+                        else:
+                            # Step was not executed
+                            if failed_step_index is not None and step_index > failed_step_index:
+                                # A previous step failed, this step couldn't proceed
+                                api_progress[step] = "can_not_proceed"
+                            else:
+                                # Execution is still running or step not reached yet
+                                api_progress[step] = "pending"
 
                     executions_progress[execution_id] = api_progress
-                    logger.debug(f"Retrieved progress for execution {execution_id}: {len(api_progress)} steps")
+                    logger.debug(f"Retrieved progress for execution {execution_id}: {api_progress}")
 
                 else:
                     logger.warning(f"Could not read execution data for {execution_id}")
-                    executions_progress[execution_id] = {step: "pending" for step in [
-                        "application_submit", "apply_coupon", "payment_checkout",
-                        "admin_policy_list", "admin_policy_details",
-                        "customer_policy_list", "customer_policy_details"
-                    ]}
+                    executions_progress[execution_id] = {step: "pending" for step in all_steps}
 
             except Exception as e:
                 logger.error(f"Failed to get progress for execution {execution_id}: {e}")
-                executions_progress[execution_id] = {step: "pending" for step in [
-                    "application_submit", "apply_coupon", "payment_checkout",
-                    "admin_policy_list", "admin_policy_details",
-                    "customer_policy_list", "customer_policy_details"
-                ]}
+                executions_progress[execution_id] = {step: "pending" for step in all_steps}
 
         logger.info(f"Retrieved progress for {len(executions_progress)} executions in session {session_id}")
 

@@ -16,6 +16,14 @@ API Steps:
 from typing import Dict, Any
 import uuid
 
+# Configuration for simulated API failures
+PAYMENT_CHECKOUT_FAILURE_CONFIG = {
+    "category": "MV4",
+    "product_id": "TOKIO_MARINE",
+    "plan_id": "COMPREHENSIVE",
+    "failing_step": "payment_checkout"
+}
+
 
 def get_application_submit_response(
     category: str,
@@ -299,6 +307,21 @@ def get_response_for_step(
     Raises:
         ValueError: If step is not recognized
     """
+    # Check for configured API failure (MV4_TOKIO_MARINE_COMPREHENSIVE payment_checkout)
+    config = PAYMENT_CHECKOUT_FAILURE_CONFIG
+    if (category == config["category"] and
+        product_id == config["product_id"] and
+        plan_id == config["plan_id"] and
+        step == config["failing_step"]):
+
+        return {
+            "status": "failed",
+            "status_code": 400,
+            "error": "Payment processing failed",
+            "message": "Payment checkout failed: Invalid payment details provided",
+            "details": "The payment could not be processed. Please check your card details and try again."
+        }
+
     step_map = {
         "application_submit": get_application_submit_response,
         "apply_coupon": get_apply_coupon_response,
