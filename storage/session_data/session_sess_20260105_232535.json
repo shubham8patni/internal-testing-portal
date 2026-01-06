@@ -1,0 +1,1 @@
+{"session_id": "sess_20260105_232535", "user_name": "sa2", "created_at": "2026-01-05T23:25:35.163204", "status": "completed", "config": {"target_environment": "DEV", "categories": ["MV4"], "admin_auth_token": null, "customer_auth_token": null}, "executions": ["sa2_20260105_232542"], "execution_count": 1}

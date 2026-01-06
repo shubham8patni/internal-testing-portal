@@ -1,6 +1,6 @@
 """Execution Request/Response Schemas"""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import List, Dict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -8,9 +8,26 @@ from datetime import datetime
 
 class ExecutionStartRequest(BaseModel):
     session_id: str
-    categories: List[str] = Field(default_factory=list)
+    target_environment: str
+    categories: Optional[List[str]] = None
     admin_auth_token: Optional[str] = None
     customer_auth_token: Optional[str] = None
+
+    @validator('target_environment')
+    def validate_target_environment(cls, v):
+        if v not in ["DEV", "QA"]:
+            raise ValueError('target_environment must be either "DEV" or "QA"')
+        return v
+
+
+class ExecutionStartResponse(BaseModel):
+    session_id: str
+    executions: List[str]
+
+
+class ExecutionProgressResponse(BaseModel):
+    session_id: str
+    executions: Dict[str, Dict[str, str]]  # execution_id -> {api_step: status}
 
 
 class ExecutionStatusResponse(BaseModel):

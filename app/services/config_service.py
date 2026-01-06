@@ -164,15 +164,15 @@ class ConfigService:
 
                 products = hierarchy.get(category, {}).get("products", {})
 
-            for product_id, product_data in products.items():
-                plans = product_data.get("plans", [])
+                for product_id, product_data in products.items():
+                    plans = product_data.get("plans", [])
 
-                for plan_id in plans if isinstance(plans, list) else plans.keys():
-                    combinations.append({
-                        "category": category,
-                        "product_id": product_id,
-                        "plan_id": plan_id
-                    })
+                    for plan_id in plans if isinstance(plans, list) else plans.keys():
+                        combinations.append({
+                            "category": category,
+                            "product_id": product_id,
+                            "plan_id": plan_id
+                        })
 
             logger.info(f"Generated {len(combinations)} combinations for {len(categories_to_process)} categories")
             return combinations

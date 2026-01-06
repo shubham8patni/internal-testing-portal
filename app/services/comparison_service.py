@@ -8,12 +8,15 @@ from typing import Dict, Any, List
 from datetime import datetime
 import logging
 
-try:
-    from deepdiff import DeepDiff
-    DEEPDIFF_AVAILABLE = True
-except ImportError:
-    DEEPDIFF_AVAILABLE = False
-    logging.warning("deepdiff not available, using basic comparison")
+# Temporarily disable deepdiff to avoid comparison issues
+# try:
+#     from deepdiff import DeepDiff
+#     DEEPDIFF_AVAILABLE = True
+# except ImportError:
+#     DEEPDIFF_AVAILABLE = False
+#     logging.warning("deepdiff not available, using basic comparison")
+DEEPDIFF_AVAILABLE = False
+logging.info("Using basic comparison (deepdiff disabled)")
 
 from app.models.comparison import Comparison, Difference
 from app.utils import response_normalizer

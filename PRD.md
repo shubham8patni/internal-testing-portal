@@ -130,15 +130,44 @@ User starts session
     ↓
 User selects category(ies) (one OR all)
     ↓
+User selects target environment (DEV or QA)
+    ↓
 User provides auth tokens (optional)
     ↓
-For each Category → Product → Plan combination:
-    For each environment (DEV, QA, STAGING):
-        Execute 7 APIs (skip Admin/Customer APIs if no token)
-        Store results
+For each selected plan under a category:
+    Create separate execution for the plan
+    Execute 7 APIs in target env + 7 in STAGING (14 total)
+    Stop execution on any failure
+    Store results with error details
     ↓
-    Compare Target vs Staging responses
-    Generate tab report
+    Compare target vs STAGING for each step
+    Generate plan report
+    Update UI progress
+    ↓ (sequential - one at a time, grouped by category)
+Next plan
+    ↓
+All plans complete
+    ↓
+Generate session report
+    ↓
+Mark session as complete
+```
+User starts session
+    ↓
+User selects category(ies) (one OR all)
+    ↓
+User selects target environment (DEV or QA)
+    ↓
+User provides auth tokens (optional)
+    ↓
+For each Category → Product → Plan combination (tab):
+    Execute 7 APIs in target env + 7 in STAGING (14 total)
+    Stop tab if any API fails (status != 200)
+    Store results with error details for failures
+    ↓
+    Compare target vs STAGING for each step
+    Generate tab report (7 comparisons visible)
+    Update UI progress incrementally
     ↓ (sequential - one at a time)
 Next combination
     ↓
@@ -198,15 +227,16 @@ Mark session as complete
 | Requirement | Description | Priority |
 |-------------|-------------|----------|
 | EX-1 | User selects: one category OR all categories (no partial) | P0 |
-| EX-2 | User provides optional Admin and Customer auth tokens | P0 |
-| EX-3 | Missing auth token skips related APIs | P0 |
-| EX-4 | Execution is sequential (one Category+Product+Plan at a time) | P0 |
-| EX-5 | Execution ID: `{session_name}_{YYYYMMDD}_{HHMMSS}` | P0 |
-| EX-6 | Failed execution does NOT stop remaining executions | P0 |
-| EX-7 | Failed executions are marked for identification | P0 |
-| EX-8 | Execution status: in_progress, completed, failed | P0 |
-| EX-9 | Each execution tests 7 APIs per environment | P0 |
-| EX-10 | Environments tested: DEV, QA, STAGING | P0 |
+| EX-2 | User selects one target environment (DEV or QA) for comparison | P0 |
+| EX-3 | User provides optional Admin and Customer auth tokens | P0 |
+| EX-4 | Missing auth token skips related APIs | P0 |
+| EX-5 | Execution is sequential (one Category+Product+Plan at a time) | P0 |
+| EX-6 | Execution ID: `{session_name}_{YYYYMMDD}_{HHMMSS}` | P0 |
+| EX-7 | Failed execution does NOT stop remaining executions | P0 |
+| EX-8 | Failed executions are marked for identification | P0 |
+| EX-9 | Execution status: in_progress, completed, failed | P0 |
+| EX-10 | Each tab executes 7 APIs in target env + 7 in STAGING (14 total) | P0 |
+| EX-11 | Tab stops on first API failure (subsequent calls skipped) | P0 |
 
 ### 5.4 API Execution
 
@@ -222,6 +252,10 @@ Mark session as complete
 | API-8 | Capture: endpoint, request payload, response, status code, execution time | P0 |
 | API-9 | Capture errors with context | P0 |
 | API-10 | Current scope: Dummy/mock responses only | P0 |
+| API-11 | Each execution (plan) performs 14 API calls (7 target + 7 STAGING) | P0 |
+| API-12 | Stop execution on any failure (status != 200) | P0 |
+| API-11 | Execute per tab: 7 APIs in target env + 7 in STAGING | P0 |
+| API-12 | Stop tab execution on any failure (status != 200) | P0 |
 
 ### 5.5 Response Comparison
 
@@ -274,12 +308,13 @@ Mark session as complete
 | Requirement | Description | Priority |
 |-------------|-------------|----------|
 | UI-1 | Landing page collects session name | P0 |
-| UI-2 | Configuration page: select category(ies), enter auth tokens | P0 |
+| UI-2 | Configuration page: select category(ies), select target env (DEV/QA), enter auth tokens | P0 |
 | UI-3 | Execution view: tab-based interface per Category+Product+Plan | P0 |
-| UI-4 | Tab shows: API status, progress, completed/pending APIs | P0 |
-| UI-5 | Click API to view details and Target vs Stage comparison | P0 |
-| UI-6 | Comparison view: side-by-side responses, highlighted differences | P0 |
-| UI-7 | History page: list all sessions (audit view) | P0 |
+| UI-4 | Tab shows: 7 API items (one per step), with status from target env | P0 |
+| UI-5 | Click API item to view Target vs STAGING comparison | P0 |
+| UI-6 | Comparison view: side-by-side responses, highlighted differences, error display for failures | P0 |
+| UI-7 | Failed tabs show error details; execution stops for that tab | P0 |
+| UI-8 | History page: list all sessions (audit view) | P0 |
 
 ### 5.10 API Endpoints
 
@@ -608,7 +643,7 @@ internal-testing-portal/
 | **Tab** | UI element representing a Category+Product+Plan combination |
 | **Execution** | A test run (one category or all categories) |
 | **Session** | A user-initiated test session containing executions |
-| **Target Environment** | DEV or QA environment being tested |
+| **Target Environment** | Selected DEV or QA environment being tested |
 | **Staging Environment** | Reference environment for comparison |
 | **Sequential Execution** | Running one Category+Product+Plan at a time |
 | **FIFO** | First-In-First-Out cleanup strategy |
@@ -632,6 +667,9 @@ internal-testing-portal/
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-03 | AI Assistant | Initial PRD based on all discussions |
+| 1.1 | 2026-01-04 | AI Assistant | Updated execution flow for single env selection, 14 API calls per tab, stop-on-failure, 7 visible UI items per tab |
+| 1.2 | 2026-01-04 | AI Assistant | Updated execution model to separate executions per plan, grouped by category for UI ease |
+| 1.2 | 2026-01-04 | AI Assistant | Updated execution model to separate executions per plan, grouped by category for UI ease |
 
 ---
 

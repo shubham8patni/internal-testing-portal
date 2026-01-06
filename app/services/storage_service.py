@@ -50,11 +50,11 @@ class StorageService:
         temp_path = file_path.with_suffix('.tmp')
         try:
             with open(temp_path, 'w') as f:
-                json.dump(data, f, indent=2, default=str)
+                json.dump(data, f, indent=None, default=str)  # Optimized: no indentation for smaller size
             os.replace(temp_path, file_path)
             logger.debug(f"Atomic write successful: {file_path.name}")
         except Exception as e:
-            logger.error(f"Atomic write failed for {file_path}: {e}", exc_info=True)
+            logger.error(f"Atomic write failed for {file_path}: {e}")
             raise
 
     def read_json(self, file_path: Path) -> Optional[Dict[str, Any]]:
@@ -129,24 +129,45 @@ class StorageService:
         Write execution results to storage.
 
         Args:
-            execution_id: Execution identifier
+            execution_id: Execution identifier (format: session_id_category_product_plan)
             execution_data: Execution results
         """
-        file_path = self.executions_dir / f"execution_{execution_id}.json"
+        # Parse execution_id to get session directory and filename
+        parts = execution_id.split('_', 3)  # session_id + date + timestamp + rest
+        if len(parts) < 4:
+            # Fallback for old format
+            file_path = self.executions_dir / f"execution_{execution_id}.json"
+        else:
+            session_dir = '_'.join(parts[:3])  # session_id
+            filename = '_'.join(parts[3:])  # category_product_plan
+            session_path = self.executions_dir / session_dir
+            session_path.mkdir(parents=True, exist_ok=True)
+            file_path = session_path / f"{filename}.json"
+
         self._atomic_write(file_path, execution_data)
-        logger.debug(f"Execution data written: {execution_id}")
+        logger.debug(f"Execution data written: {execution_id} -> {file_path}")
 
     def read_execution(self, execution_id: str) -> Optional[Dict[str, Any]]:
         """
         Read execution data from storage.
 
         Args:
-            execution_id: Execution identifier
+            execution_id: Execution identifier (format: session_id_category_product_plan)
 
         Returns:
             Execution data or None if not found
         """
-        file_path = self.executions_dir / f"execution_{execution_id}.json"
+        # Parse execution_id to get session directory and filename
+        parts = execution_id.split('_', 3)
+        if len(parts) < 4:
+            # Fallback for old format
+            file_path = self.executions_dir / f"execution_{execution_id}.json"
+        else:
+            session_dir = '_'.join(parts[:3])
+            filename = '_'.join(parts[3:])
+            session_path = self.executions_dir / session_dir
+            file_path = session_path / f"{filename}.json"
+
         return self.read_json(file_path)
 
     def cleanup_old_sessions(self, max_sessions: int = 5):
@@ -239,9 +260,59 @@ class StorageService:
         Delete execution data.
 
         Args:
-            execution_id: Execution identifier
+            execution_id: Execution identifier (format: session_id_category_product_plan)
         """
-        execution_file = self.executions_dir / f"execution_{execution_id}.json"
+        # Parse execution_id to get session directory and filename
+        parts = execution_id.split('_', 3)
+        if len(parts) < 4:
+            # Fallback for old format
+            execution_file = self.executions_dir / f"execution_{execution_id}.json"
+        else:
+            session_dir = '_'.join(parts[:3])
+            filename = '_'.join(parts[3:])
+            session_path = self.executions_dir / session_dir
+            execution_file = session_path / f"{filename}.json"
+
         if execution_file.exists():
             execution_file.unlink()
-            logger.debug(f"Execution deleted: {execution_id}")
+            logger.debug(f"Execution deleted: {execution_id} -> {execution_file}")
+
+    def cleanup_old_test_directories(self, max_test_dirs: int = 10):
+        """
+        Clean up old test directories using FIFO strategy.
+
+        Args:
+            max_test_dirs: Maximum number of test directories to keep
+        """
+        try:
+            # Get all test directories (format: user_date_timestamp)
+            test_dirs = []
+            for item in self.executions_dir.iterdir():
+                if item.is_dir() and not item.name.startswith('execution_'):
+                    # Check if directory name matches expected format
+                    parts = item.name.split('_')
+                    if len(parts) >= 3:  # user_date_timestamp minimum
+                        test_dirs.append((item, item.stat().st_mtime))
+
+            if len(test_dirs) <= max_test_dirs:
+                logger.debug("No test directory cleanup needed")
+                return
+
+            # Sort by modification time (oldest first)
+            test_dirs.sort(key=lambda x: x[1])
+
+            dirs_to_remove = test_dirs[:len(test_dirs) - max_test_dirs]
+            logger.info(f"Cleaning up {len(dirs_to_remove)} old test directories")
+
+            for dir_path, _ in dirs_to_remove:
+                try:
+                    import shutil
+                    shutil.rmtree(dir_path)
+                    logger.debug(f"Test directory deleted: {dir_path}")
+                except Exception as e:
+                    logger.error(f"Failed to delete test directory {dir_path}: {e}")
+
+            logger.info(f"Test directory cleanup completed. {max_test_dirs} directories remaining")
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup test directories: {e}")

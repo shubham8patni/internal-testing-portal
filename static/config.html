@@ -20,6 +20,14 @@
 
             <form id="config-form">
                 <div class="form-group">
+                    <label for="target-environment">Target Environment:</label>
+                    <select id="target-environment" name="target_environment" required>
+                        <option value="DEV" selected>DEV</option>
+                        <option value="QA">QA</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label for="category-selection">Product Category:</label>
                     <select id="category-selection" name="categories" required>
                         <option value="">-- Select Categories --</option>
@@ -98,6 +106,7 @@
         document.getElementById('config-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
+            const targetEnvironment = document.getElementById('target-environment').value;
             const categories = document.getElementById('category-selection').value;
             const adminToken = document.getElementById('admin-token').value.trim() || null;
             const customerToken = document.getElementById('customer-token').value.trim() || null;
@@ -115,6 +124,7 @@
                     },
                     body: JSON.stringify({
                         session_id: sessionId,
+                        target_environment: targetEnvironment,
                         categories: categories === 'all' ? [] : [categories],
                         admin_auth_token: adminToken,
                         customer_auth_token: customerToken
@@ -123,6 +133,14 @@
 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log('Execution start response:', data);
+
+                    // Store execution IDs in sessionStorage for the execution page
+                    if (data.executions && Array.isArray(data.executions)) {
+                        sessionStorage.setItem(`${sessionId}_executions`, JSON.stringify(data.executions));
+                        console.log('Stored execution IDs:', data.executions);
+                    }
+
                     showSuccess();
                     setTimeout(() => {
                         window.location.href = `/execution.html?session_id=${sessionId}`;

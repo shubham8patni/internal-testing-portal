@@ -240,13 +240,19 @@ def get_payload_for_step(
 
     payload_func = step_map[step]
 
+    # Enhanced handling for dynamic data
     if step == "application_submit":
         return payload_func(category, product_id, plan_id, kwargs.get("customer_data"))
-    elif step in ["apply_coupon", "payment_checkout"]:
-        return payload_func(kwargs.get("application_id", "app_12345"))
+    elif step == "apply_coupon":
+        application_id = kwargs.get("application_id", "app_12345")
+        coupon_code = kwargs.get("coupon_code", "SAVE10")
+        return payload_func(application_id, coupon_code)
+    elif step == "payment_checkout":
+        application_id = kwargs.get("application_id", "app_12345")
+        return payload_func(application_id, kwargs.get("payment_method", "CREDIT_CARD"), kwargs.get("payment_details"))
     elif step in ["admin_policy_list", "customer_policy_list"]:
         token_key = "admin_token" if "admin" in step else "customer_token"
-        return payload_func(kwargs.get(token_key, ""))
+        return payload_func(kwargs.get(token_key, ""), kwargs.get("filters"))
     elif step in ["admin_policy_details", "customer_policy_details"]:
         token_key = "admin_token" if "admin" in step else "customer_token"
         return payload_func(kwargs.get(token_key, ""), kwargs.get("policy_id", "policy_12345"))

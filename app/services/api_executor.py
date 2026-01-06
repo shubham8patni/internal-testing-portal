@@ -46,7 +46,8 @@ class APIExecutorService:
         category: str,
         product_id: str,
         plan_id: str,
-        auth_token: Optional[str] = None
+        auth_token: Optional[str] = None,
+        application_id: Optional[str] = None
     ) -> APICall:
         """
         Execute a single API call for the 7-step flow.
@@ -77,7 +78,7 @@ class APIExecutorService:
                 category,
                 product_id,
                 plan_id,
-                **self._get_payload_kwargs(api_step, auth_token, execution_id)
+                **self._get_payload_kwargs(api_step, auth_token, application_id)
             )
 
             response = dummy_responses.get_response_for_step(
@@ -85,7 +86,7 @@ class APIExecutorService:
                 category,
                 product_id,
                 plan_id,
-                **self._get_response_kwargs(api_step, auth_token, execution_id)
+                **self._get_response_kwargs(api_step, auth_token, application_id)
             )
 
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -182,7 +183,8 @@ class APIExecutorService:
                 category=category,
                 product_id=product_id,
                 plan_id=plan_id,
-                auth_token=auth_token
+                auth_token=auth_token,
+                application_id=application_id
             )
 
             if step == "application_submit" and api_call.status_code == 200:

@@ -8,12 +8,12 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 
-from app.models.session import Session
-from app.schemas.session import SessionCreate, SessionResponse, SessionListResponse
 from app.services.storage_service import StorageService
+from app.schemas.session import SessionCreate, SessionResponse, SessionListResponse
+from app.models.session import Session
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("InternalTestingPortal")
 
 
 class SessionService:
@@ -36,8 +36,12 @@ class SessionService:
             Exception: If session creation fails
         """
         try:
+            logger.debug("[SESSION] Starting session creation")
             timestamp = datetime.now()
+            logger.debug("[SESSION] Timestamp generated")
+
             session_id = f"sess_{timestamp.strftime('%Y%m%d_%H%M%S')}"
+            logger.debug(f"[SESSION] Session ID generated: {session_id}")
 
             session_data = {
                 "session_id": session_id,
@@ -48,12 +52,16 @@ class SessionService:
                 "executions": [],
                 "execution_count": 0
             }
+            logger.debug("[SESSION] Session data dict created")
 
             session_list = self.storage.read_session_list()
+            logger.debug(f"[SESSION] Session list read: {len(session_list)} sessions")
 
             if len(session_list) >= settings.max_sessions:
+                logger.debug("[SESSION] Cleanup triggered")
                 self.storage.cleanup_old_sessions(settings.max_sessions)
                 session_list = self.storage.read_session_list()
+                logger.debug(f"[SESSION] Session list after cleanup: {len(session_list)} sessions")
 
             session_list.append({
                 "session_id": session_id,
@@ -62,13 +70,20 @@ class SessionService:
                 "status": "active",
                 "execution_count": 0
             })
+            logger.debug("[SESSION] New session appended to list")
 
             self.storage.write_session_list(session_list)
+            logger.debug("[SESSION] Session list written")
+
             self.storage.write_session_data(session_id, session_data)
+            logger.debug("[SESSION] Session data written")
 
             logger.info(f"Session created: {session_id} by {request.user_name}")
 
-            return Session(**session_data)
+            session = Session(**session_data)
+            logger.debug("[SESSION] Session model created")
+
+            return session
 
         except Exception as e:
             logger.error(f"Failed to create session: {e}", exc_info=True)
@@ -149,6 +164,7 @@ class SessionService:
 
         executions = session_data.get("executions", [])
 
+        # Check if we've reached the max executions limit
         if len(executions) >= settings.max_executions_per_session:
             self.storage.cleanup_old_executions(session_id, settings.max_executions_per_session)
             session_data = self.storage.read_session_data(session_id)

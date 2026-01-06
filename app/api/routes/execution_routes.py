@@ -4,7 +4,7 @@ Endpoints:
 - POST /api/execution/start - Start test execution
 - GET /api/execution/status/{session_id} - Get overall status
 - GET /api/execution/tabs/{session_id} - Get all tabs
-- GET /api/execution/progress/{session_id}/{tab_id} - Get tab progress
+- GET /api/execution/progress/{session_id} - Get session progress for all executions
 - GET /api/execution/{session_id}/api-call/{call_id} - Get API call details
 - GET /api/execution/{session_id}/comparison/{call_id} - Get comparison results
 """
@@ -16,9 +16,11 @@ import asyncio
 
 from app.schemas.execution import (
     ExecutionStartRequest,
+    ExecutionStartResponse,
     ExecutionStatusResponse,
     TabsListResponse,
-    TabProgressResponse
+    TabProgressResponse,
+    ExecutionProgressResponse
 )
 from app.schemas.comparison import APICallDetails, ComparisonResponse
 from app.services.execution_service import ExecutionService
@@ -53,68 +55,79 @@ def get_execution_service() -> ExecutionService:
     )
 
 
-@router.post("/start", status_code=202)
+@router.post("/start", response_model=ExecutionStartResponse, status_code=202)
 async def start_execution(
     request: ExecutionStartRequest,
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """
-    Start a new test execution.
+    Start a new test execution with multiple Category+Product+Plan combinations.
 
     Args:
         request: Execution start request with session_id, categories, auth tokens
 
     Returns:
-        Execution details
+        ExecutionStartResponse with session_id and list of execution IDs
 
     Raises:
         HTTPException: If session not found (404)
     """
     try:
-        execution = execution_service.start_execution(request)
-        execution_id = execution.execution_id
+        execution_ids = execution_service.start_execution(request)
+        logger.info(f"Created {len(execution_ids)} executions for test in session {request.session_id}")
 
-        async def background_execution():
+        # Start sequential background execution of individual executions
+        def background_execution():
             try:
-                logger.info(f"Background task starting for execution: {execution_id}")
-                await execution_service.execute_all_tabs(
-                    execution_id=execution_id,
-                    session_id=request.session_id,
-                    categories=request.categories if request.categories else ["all"],
-                    admin_token=request.admin_auth_token,
-                    customer_token=request.customer_auth_token
-                )
-                logger.info(f"Background task completed successfully: {execution_id}")
+                logger.info(f"Starting sequential execution of {len(execution_ids)} executions")
+                for i, execution_id in enumerate(execution_ids):
+                    try:
+                        logger.info(f"Starting execution {i+1}/{len(execution_ids)}: {execution_id}")
+
+                        # Parse execution_id to get components
+                        parts = execution_id.split('_')
+                        category = parts[-3]
+                        product_id = parts[-2]
+                        plan_id = parts[-1]
+
+                        execution_service.execute_single_execution(
+                            execution_id=execution_id,
+                            session_id=request.session_id,
+                            target_env=request.target_environment,
+                            category=category,
+                            product_id=product_id,
+                            plan_id=plan_id,
+                            admin_token=request.admin_auth_token,
+                            customer_token=request.customer_auth_token
+                        )
+                        logger.info(f"Completed execution {i+1}/{len(execution_ids)}: {execution_id}")
+
+                    except Exception as e:
+                        logger.error(f"Execution {execution_id} failed: {e}", exc_info=True)
+                        # Continue with next execution
+
+                logger.info(f"All executions completed for session {request.session_id}")
+
             except Exception as e:
-                logger.error(f"Background task failed for {execution_id}: {e}", exc_info=True)
-                execution_service._mark_execution_failed(execution_id)
+                logger.error(f"Background execution failed for session {request.session_id}: {e}", exc_info=True)
 
-        logger.info(f"Execution started: {execution_id}")
+        # Run in background thread to avoid blocking the response
+        import threading
+        thread = threading.Thread(target=background_execution, daemon=True)
+        thread.start()
+        logger.info(f"Test started with {len(execution_ids)} executions in session {request.session_id}")
 
-        logger.info(f"[DEBUG] Creating background task for execution: {execution_id}")
-        try:
-            task = asyncio.create_task(background_execution())
-            logger.info(f"[DEBUG] Background task created successfully: {task}")
-        except Exception as e:
-            logger.error(f"[ERROR] Failed to create background task: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to start background execution: {str(e)}")
+        return ExecutionStartResponse(
+            session_id=request.session_id,
+            executions=execution_ids
+        )
 
-        logger.info(f"[DEBUG] Returning response to client, execution: {execution_id}")
-        return {
-            "execution_id": execution_id,
-            "status": "in_progress",
-            "message": "Execution started in background"
-        }
     except ValueError as e:
-        logger.warning(f"Session not found: {request.session_id}")
+        logger.warning(f"Execution start failed: {e}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to start execution: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to start execution: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Unexpected error starting execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/status/{session_id}", response_model=ExecutionStatusResponse)
@@ -173,33 +186,31 @@ async def get_execution_tabs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/progress/{session_id}/{tab_id}", response_model=TabProgressResponse)
-async def get_tab_progress(
+@router.get("/progress/{session_id}", response_model=ExecutionProgressResponse)
+async def get_session_progress(
     session_id: str,
-    tab_id: str,
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """
-    Get progress for a specific tab.
+    Get progress for all executions in a session.
 
     Args:
         session_id: Session identifier
-        tab_id: Tab identifier
 
     Returns:
-        Tab progress with API calls
+        Progress for all executions in the session
 
     Raises:
-        HTTPException: If session or tab not found (404)
+        HTTPException: If session not found (404)
     """
     try:
-        progress = execution_service.get_tab_progress(session_id, tab_id)
+        progress = execution_service.get_session_progress(session_id)
         return progress
     except ValueError as e:
-        logger.warning(f"Session or tab not found: {session_id}/{tab_id}")
+        logger.warning(f"Session not found: {session_id}")
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Failed to get tab progress: {e}", exc_info=True)
+        logger.error(f"Failed to get session progress: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -228,35 +239,65 @@ async def get_api_call(
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
-        api_calls = []
+        comparisons = []
 
         for execution_id in session.executions:
-            execution_data = execution_service.storage.read_execution(execution_id)
+            execution_data = storage_service.read_execution(execution_id)
 
             if execution_data:
-                api_calls.extend(execution_data.get("api_calls", []))
+                comparisons.extend(execution_data.get("comparisons", []))
 
-        api_call = None
+        comparison = None
+        target_response = None
+        staging_response = None
 
-        for call in api_calls:
-            if call.get("call_id") == call_id:
-                api_call = call
+        # Find comparison for this call
+        for comp in comparisons:
+            if comp.get("call_id") == call_id or call_id in comp.get("comparison_id", ""):
+                comparison = comp
                 break
 
-        if not api_call:
-            logger.warning(f"API call not found: {call_id}")
-            raise HTTPException(status_code=404, detail="API call not found")
+        if not comparison:
+            # Fallback: find by api_step
+            api_calls = []
+            for execution_id in session.executions:
+                execution_data = storage_service.read_execution(execution_id)
+                if execution_data:
+                    api_calls.extend(execution_data.get("api_calls", []))
 
-        return APICallDetails(
-            call_id=api_call["call_id"],
-            api_step=api_call["api_step"],
-            environment=api_call["environment"],
-            endpoint=api_call["endpoint"],
-            request_payload=api_call.get("request_payload"),
-            response_data=api_call.get("response_data"),
-            status_code=api_call.get("status_code"),
-            execution_time_ms=api_call.get("execution_time_ms"),
-            error=api_call.get("error")
+            target_call = None
+            staging_call = None
+            for call in api_calls:
+                if call.get("call_id") == call_id:
+                    if call.get("environment") == "STAGING":
+                        staging_call = call
+                    else:
+                        target_call = call
+
+            if target_call and staging_call:
+                target_response = target_call.get("response_data")
+                staging_response = staging_call.get("response_data")
+                comparison = {
+                    "comparison_id": f"cmp_{call_id}",
+                    "target_environment": target_call.get("environment"),
+                    "staging_environment": "STAGING",
+                    "differences": [],
+                    "summary": {}
+                }
+
+        if not comparison:
+            logger.warning(f"Comparison not found for call: {call_id}")
+            raise HTTPException(status_code=404, detail="Comparison not found")
+
+        return ComparisonResponse(
+            comparison_id=comparison.get("comparison_id"),
+            call_id=call_id,
+            target_environment=comparison.get("target_environment"),
+            staging_environment=comparison.get("staging_environment"),
+            target_response=target_response or comparison.get("target_response"),
+            staging_response=staging_response or comparison.get("staging_response"),
+            differences=comparison.get("differences", []),
+            summary=comparison.get("summary", {})
         )
 
     except ValueError as e:

@@ -20,7 +20,7 @@ session_service = SessionService()
 
 
 @router.post("/create", response_model=SessionResponse, status_code=201)
-async def create_session(request: SessionCreate):
+def create_session(request: SessionCreate):
     """
     Create a new test session.
 

@@ -314,12 +314,17 @@ def get_response_for_step(
 
     response_func = step_map[step]
 
+    # Enhanced handling for consistency
     if step == "application_submit":
         return response_func(category, product_id, plan_id)
     elif step == "apply_coupon":
-        return response_func(kwargs.get("application_id", "app_12345"), kwargs.get("coupon_code", "SAVE10"))
+        application_id = kwargs.get("application_id", "app_12345")
+        coupon_code = kwargs.get("coupon_code", "SAVE10")
+        return response_func(application_id, coupon_code)
     elif step == "payment_checkout":
-        return response_func(kwargs.get("application_id", "app_12345"), kwargs.get("payment_method", "CREDIT_CARD"))
+        application_id = kwargs.get("application_id", "app_12345")
+        payment_method = kwargs.get("payment_method", "CREDIT_CARD")
+        return response_func(application_id, payment_method)
     elif step in ["admin_policy_list", "customer_policy_list"]:
         token_key = "admin_token" if "admin" in step else "customer_token"
         return response_func(kwargs.get(token_key, ""))

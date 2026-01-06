@@ -17,17 +17,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DEBUG] Session ID validation passed, initializing...');
 
     let pollingInterval = null;
-    let currentTabId = null;
+    let currentExecutionId = null;
+    let executionIds = [];
 
-    // Load tabs
-    async function loadTabs() {
+    // Load executions from sessionStorage and create tabs
+    function loadExecutions() {
         try {
-            console.log('[DEBUG] Loading tabs for session:', sessionId);
-            const data = await window.testingPortal.apiCall(`/api/execution/tabs/${sessionId}`);
-            console.log('[DEBUG] API response:', data);
-            const tabs = data.tabs;
-            console.log('[DEBUG] Tabs loaded:', tabs);
-            console.log('[DEBUG] Number of tabs:', tabs ? tabs.length : 0);
+            console.log('[DEBUG] Loading executions for session:', sessionId);
+            const stored = sessionStorage.getItem(`${sessionId}_executions`);
+            console.log('[DEBUG] Stored execution IDs:', stored);
+
+            if (!stored) {
+                console.warn('[WARN] No executions found in sessionStorage');
+                const tabsHeader = document.getElementById('tabs-header');
+                if (tabsHeader) {
+                    tabsHeader.innerHTML = '<p style="color: #666;">No executions found. Please configure and start a test.</p>';
+                }
+                return;
+            }
+
+            executionIds = JSON.parse(stored);
+            console.log('[DEBUG] Parsed execution IDs:', executionIds);
+            console.log('[DEBUG] Number of executions:', executionIds.length);
 
             const tabsHeader = document.getElementById('tabs-header');
             console.log('[DEBUG] Tabs header element:', tabsHeader);
@@ -39,41 +50,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             tabsHeader.innerHTML = '';
 
-            if (!tabs || tabs.length === 0) {
-                console.warn('[WARN] No tabs found in response');
-                tabsHeader.innerHTML = '<p style="color: #666;">No tabs found. Start a new test execution.</p>';
+            if (!executionIds || executionIds.length === 0) {
+                console.warn('[WARN] No execution IDs found');
+                tabsHeader.innerHTML = '<p style="color: #666;">No executions found. Start a new test execution.</p>';
                 return;
             }
 
-            tabs.forEach((tab, index) => {
-                console.log(`[DEBUG] Creating tab ${index + 1}:`, tab);
+            executionIds.forEach((executionId, index) => {
                 const tabElement = document.createElement('div');
-                tabElement.className = `tab ${currentTabId === tab.tab_id ? 'active' : ''}`;
-                tabElement.textContent = `${tab.tab_id}`;
-                tabElement.onclick = () => selectTab(tab.tab_id);
+                tabElement.className = `tab ${currentExecutionId === executionId ? 'active' : ''}`;
+
+                // Extract display name from execution_id (category_product_plan)
+                const parts = executionId.split('_');
+                const displayName = parts.slice(-3).join('_'); // Last 3 parts: category_product_plan
+                tabElement.textContent = displayName;
+                tabElement.onclick = () => selectExecution(executionId);
                 tabsHeader.appendChild(tabElement);
-                console.log(`[DEBUG] Tab ${index + 1} appended to DOM`);
             });
 
-            console.log('[DEBUG] All tabs rendered. Total tabs in DOM:', tabsHeader.children.length);
+            console.log('[DEBUG] All execution tabs rendered. Total tabs in DOM:', tabsHeader.children.length);
 
-            // Select first tab if none selected
-            if (!currentTabId && tabs.length > 0) {
-                console.log('[DEBUG] Auto-selecting first tab:', tabs[0].tab_id);
-                selectTab(tabs[0].tab_id);
+            // Select first execution if none selected
+            if (!currentExecutionId && executionIds.length > 0) {
+                console.log('[DEBUG] Auto-selecting first execution:', executionIds[0]);
+                selectExecution(executionIds[0]);
             }
         } catch (error) {
-            console.error('[ERROR] Error loading tabs:', error);
+            console.error('[ERROR] Error loading executions:', error);
             console.error('[ERROR] Error stack:', error.stack);
-            window.testingPortal.showError('Failed to load tabs');
+            window.testingPortal.showError('Failed to load executions');
         }
     }
 
-    // Select tab and load progress
-    async function selectTab(tabId) {
-        console.log('[DEBUG] selectTab called with tabId:', tabId);
-        currentTabId = tabId;
-        
+    // Select execution and load progress
+    function selectExecution(executionId) {
+        console.log('[DEBUG] selectExecution called with executionId:', executionId);
+        currentExecutionId = executionId;
+
         // Update tab styling
         const allTabs = document.querySelectorAll('.tab');
         console.log('[DEBUG] Found tabs in DOM:', allTabs.length);
@@ -81,110 +94,148 @@ document.addEventListener('DOMContentLoaded', async () => {
             tab.classList.remove('active');
         });
 
-        // Find the clicked tab element
-        const clickedTab = document.querySelector(`.tab`)?.[0];
-        if (!clickedTab) {
-            console.error('[ERROR] No tab elements found in DOM');
-            return;
-        }
+        // Find and activate the clicked tab
+        allTabs.forEach((tab, index) => {
+            const tabExecutionId = executionIds[index];
+            if (tabExecutionId === executionId) {
+                tab.classList.add('active');
+                console.log('[DEBUG] Tab activated for execution:', executionId);
+            }
+        });
 
-        clickedTab.classList.add('active');
-        console.log('[DEBUG] Tab activated:', tabId);
-        
-        // Load tab progress
-        await loadTabProgress(tabId);
+        // Load execution progress
+        loadExecutionProgress(executionId);
     }
 
-    // Load tab progress
-    async function loadTabProgress(tabId) {
+    // Load execution progress
+    function loadExecutionProgress(executionId) {
         try {
-            const data = await window.testingPortal.apiCall(`/api/execution/progress/${sessionId}/${tabId}`);
+            console.log('[DEBUG] Loading execution progress for:', executionId);
+
+            // Get progress from polling data (will be updated by polling)
+            const progressData = window.executionProgressData || {};
+            const executions = progressData.executions || {};
+            const executionProgress = executions[executionId] || {};
+
             const tabContent = document.getElementById('tab-content');
-            const apiCalls = data.api_calls || [];
-            
+
+            // Extract display name from execution_id (category_product_plan)
+            const parts = executionId.split('_');
+            const displayName = parts.slice(-3).join('_');
+
             let html = `
-                <h3>Tab: ${tabId}</h3>
+                <h3>Execution: ${displayName}</h3>
                 <div class="api-list">
             `;
-            
-            if (apiCalls.length === 0) {
-                html += '<p style="color: #666;">No API calls yet. Waiting for execution...</p>';
-            } else {
-                apiCalls.forEach(call => {
-                    const statusClass = call.status_code === 200 ? 'completed' : 'failed';
-                    html += `
-                        <div class="api-item ${statusClass}">
-                            <div class="api-header">
-                                <span class="api-name">${call.api_step}</span>
-                                <span class="status-badge ${statusClass === 'completed' ? 'status-completed' : 'status-failed'}">
-                                    ${call.status_code === 200 ? '✓' : '✗'} ${call.status_code}
-                                </span>
-                                <span style="font-size: 12px; color: #999;">${call.execution_time_ms}ms</span>
-                            </div>
-                            <div>
-                                <small style="color: #666;">
-                                    Environment: <strong>${call.environment.toUpperCase()}</strong> | 
-                                    ${call.endpoint}
-                                </small>
-                            </div>
-                            ${call.error ? `<div style="color: #ef473a; margin-top: 5px;">Error: ${call.error}</div>` : ''}
+
+            // Define all API steps
+            const allSteps = [
+                'application_submit',
+                'apply_coupon',
+                'payment_checkout',
+                'admin_policy_list',
+                'admin_policy_details',
+                'customer_policy_list',
+                'customer_policy_details'
+            ];
+
+            let hasAnyProgress = false;
+            allSteps.forEach(step => {
+                const status = executionProgress[step] || 'pending';
+                hasAnyProgress = hasAnyProgress || (status !== 'pending');
+
+                const statusClass = status === 'succeed' ? 'completed' : status === 'failed' ? 'failed' : 'pending';
+                const statusIcon = status === 'succeed' ? '✓' : status === 'failed' ? '✗' : '○';
+                const statusText = status.toUpperCase();
+
+                html += `
+                    <div class="api-item ${statusClass}">
+                        <div class="api-header">
+                            <span class="api-name">${step.replace('_', ' ').toUpperCase()}</span>
+                            <span class="status-badge ${statusClass === 'completed' ? 'status-completed' : statusClass === 'failed' ? 'status-failed' : 'status-pending'}">
+                                ${statusIcon} ${statusText}
+                            </span>
                         </div>
-                    `;
-                });
+                    </div>
+                `;
+            });
+
+            if (!hasAnyProgress) {
+                html += '<p style="color: #666; margin-top: 15px;">No API calls yet. Waiting for execution...</p>';
             }
-            
+
             html += '</div>';
             tabContent.innerHTML = html;
-            
+
+            console.log('[DEBUG] Execution progress loaded for:', executionId, executionProgress);
+
         } catch (error) {
-            console.error('Error loading tab progress:', error);
-            window.testingPortal.showError('Failed to load tab progress');
+            console.error('Error loading execution progress:', error);
+            window.testingPortal.showError('Failed to load execution progress');
         }
     }
 
-    // Load overall status
-    async function loadOverallStatus() {
+    // Load execution progress and overall status
+    async function loadExecutionProgressData() {
         try {
-            console.log('[DEBUG] Loading overall status for session:', sessionId);
-            const data = await window.testingPortal.apiCall(`/api/execution/status/${sessionId}`);
-            console.log('[DEBUG] Overall status response:', data);
+            console.log('[DEBUG] Loading execution progress for session:', sessionId);
+            const data = await window.testingPortal.apiCall(`/api/execution/progress/${sessionId}`);
+            console.log('[DEBUG] Progress response:', data);
+
+            // Store globally for individual execution loading
+            window.executionProgressData = data;
+
+            // Update overall status
             const statusDiv = document.getElementById('overall-status');
-            
-            if (!statusDiv) {
-                console.error('[ERROR] overall-status element not found!');
-                return;
+            if (statusDiv) {
+                const executions = data.executions || {};
+                const totalExecutions = Object.keys(executions).length;
+                const completedExecutions = Object.values(executions).filter(exec =>
+                    Object.values(exec).every(status => status === 'succeed')
+                ).length;
+                const failedExecutions = Object.values(executions).filter(exec =>
+                    Object.values(exec).some(status => status === 'failed')
+                ).length;
+                const inProgressExecutions = totalExecutions - completedExecutions - failedExecutions;
+
+                let overallStatus = 'pending';
+                if (inProgressExecutions > 0) overallStatus = 'in_progress';
+                else if (failedExecutions > 0) overallStatus = 'failed';
+                else if (completedExecutions === totalExecutions && totalExecutions > 0) overallStatus = 'completed';
+
+                statusDiv.innerHTML = `
+                    <div>
+                        <span>Status:</span>
+                        ${window.testingPortal.createStatusBadge(overallStatus)}
+                    </div>
+                    <div style="margin-top: 5px; font-size: 13px;">
+                        <span>Total: ${totalExecutions}</span> |
+                        <span>Completed: ${completedExecutions}</span> |
+                        <span>Failed: ${failedExecutions}</span> |
+                        <span>In Progress: ${inProgressExecutions}</span>
+                    </div>
+                `;
+                console.log('[DEBUG] Overall status updated');
             }
-            
-            statusDiv.innerHTML = `
-                <div>
-                    <span>Status:</span>
-                    ${window.testingPortal.createStatusBadge(data.overall_status)}
-                </div>
-                <div style="margin-top: 5px; font-size: 13px;">
-                    <span>Total: ${data.total_executions}</span> |
-                    <span>Completed: ${data.completed_executions}</span> |
-                    <span>Failed: ${data.failed_executions}</span> |
-                    <span>In Progress: ${data.in_progress_executions}</span>
-                </div>
-            `;
-            console.log('[DEBUG] Overall status rendered');
+
+            // Update current execution progress if one is selected
+            if (currentExecutionId) {
+                loadExecutionProgress(currentExecutionId);
+            }
+
         } catch (error) {
-            console.error('[ERROR] Error loading overall status:', error);
+            console.error('[ERROR] Error loading execution progress:', error);
             console.error('[ERROR] Error stack:', error.stack);
         }
     }
 
     // Initial load
-    await loadTabs();
-    await loadOverallStatus();
-    
+    loadExecutions();
+    await loadExecutionProgressData();
+
     // Start polling
     pollingInterval = window.testingPortal.startPolling(async () => {
-        await loadTabs();
-        await loadOverallStatus();
-        if (currentTabId) {
-            await loadTabProgress(currentTabId);
-        }
+        await loadExecutionProgressData();
     });
     
     // Cleanup on page unload
