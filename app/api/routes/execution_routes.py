@@ -79,16 +79,18 @@ async def start_execution(
         # Start sequential background execution of individual executions
         def background_execution():
             try:
-                logger.info(f"Starting sequential execution of {len(execution_ids)} executions")
+                logger.info(f"[BG-EXEC] Starting sequential execution of {len(execution_ids)} executions for session {request.session_id}")
                 for i, execution_id in enumerate(execution_ids):
                     try:
-                        logger.info(f"Starting execution {i+1}/{len(execution_ids)}: {execution_id}")
+                        logger.info(f"[BG-EXEC] Starting execution {i+1}/{len(execution_ids)}: {execution_id}")
 
                         # Parse execution_id to get components
                         parts = execution_id.split('_')
                         category = parts[-3]
                         product_id = parts[-2]
                         plan_id = parts[-1]
+
+                        logger.debug(f"[BG-EXEC] Parsed components - category: {category}, product: {product_id}, plan: {plan_id}")
 
                         execution_service.execute_single_execution(
                             execution_id=execution_id,
@@ -100,16 +102,16 @@ async def start_execution(
                             admin_token=request.admin_auth_token,
                             customer_token=request.customer_auth_token
                         )
-                        logger.info(f"Completed execution {i+1}/{len(execution_ids)}: {execution_id}")
+                        logger.info(f"[BG-EXEC] Completed execution {i+1}/{len(execution_ids)}: {execution_id}")
 
                     except Exception as e:
-                        logger.error(f"Execution {execution_id} failed: {e}", exc_info=True)
+                        logger.error(f"[BG-EXEC] Execution {execution_id} failed: {e}", exc_info=True)
                         # Continue with next execution
 
-                logger.info(f"All executions completed for session {request.session_id}")
+                logger.info(f"[BG-EXEC] All executions completed for session {request.session_id}")
 
             except Exception as e:
-                logger.error(f"Background execution failed for session {request.session_id}: {e}", exc_info=True)
+                logger.error(f"[BG-EXEC] Background execution failed for session {request.session_id}: {e}", exc_info=True)
 
         # Run in background thread to avoid blocking the response
         import threading

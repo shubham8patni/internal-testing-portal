@@ -206,19 +206,19 @@ class ExecutionService:
                 "execution_id": execution_id,
                 "status": "completed",
                 "total_api_calls": len(api_calls),
-                "failed_api_calls": len([c for c in api_calls if c.get("status_code", 200) != 200]),
+                "failed_api_calls": len([c for c in api_calls if c.status_code != 200]),
                 "summary": "Execution completed"
             }
 
             # Update execution with final data
-            logger.debug(f"[SINGLE-EXEC] Updating final execution data for {execution_id}")
             execution_data = self.storage.read_execution(execution_id)
             if execution_data:
-                execution_data["api_calls"] = api_calls
-                execution_data["comparisons"] = comparisons
+                # Convert APICall objects to dictionaries for storage
+                execution_data["api_calls"] = [c.dict() if hasattr(c, 'dict') else c for c in api_calls]
+                execution_data["comparisons"] = [c.dict() if hasattr(c, 'dict') else c for c in comparisons]
                 execution_data["reports"] = report
                 execution_data["status"] = "completed"
-                execution_data["has_failures"] = any(c.get("status_code", 200) != 200 for c in api_calls)
+                execution_data["has_failures"] = any(c.status_code != 200 for c in api_calls)
                 self.storage.write_execution(execution_id, execution_data)
                 logger.info(f"[SINGLE-EXEC] Updated execution data for {execution_id} - status: completed, has_failures: {execution_data['has_failures']}")
             else:
@@ -429,7 +429,7 @@ class ExecutionService:
                 auth_token=auth_token,
                 application_id=application_id
             )
-            api_calls.append(target_call.dict() if hasattr(target_call, 'dict') else target_call)
+            api_calls.append(target_call)
 
             if target_call.status_code != 200:
                 logger.warning(f"[EXECUTION-TAB] Target API failed for step '{step}' in {target_env} (status {target_call.status_code}), stopping tab {tab_id}")
@@ -453,7 +453,7 @@ class ExecutionService:
                 auth_token=auth_token,
                 application_id=application_id
             )
-            api_calls.append(staging_call.dict() if hasattr(staging_call, 'dict') else staging_call)
+            api_calls.append(staging_call)
 
             if staging_call.status_code != 200:
                 logger.warning(f"[EXECUTION-TAB] STAGING API failed for step '{step}' (status {staging_call.status_code}), stopping tab {tab_id}")
@@ -469,7 +469,7 @@ class ExecutionService:
         self,
         execution_id: str,
         target_env: str,
-        api_calls: List[Dict[str, Any]]
+        api_calls: List[Any]  # APICall objects
     ) -> List[Dict[str, Any]]:
         """
         Compare results across environments for a tab.
@@ -488,21 +488,21 @@ class ExecutionService:
         logger.info(f"[COMPARE] Target env: {target_env}")
         logger.info(f"[COMPARE] Total API calls to compare: {len(api_calls)}")
 
-        target_calls = [c for c in api_calls if c["environment"] == target_env]
-        staging_calls = [c for c in api_calls if c["environment"] == "STAGING"]
+        target_calls = [c for c in api_calls if c.environment == target_env]
+        staging_calls = [c for c in api_calls if c.environment == "STAGING"]
 
         logger.info(f"[COMPARE] {target_env} calls: {len(target_calls)}")
         logger.info(f"[COMPARE] STAGING calls: {len(staging_calls)}")
 
         for target_call in target_calls:
-            logger.info(f"[COMPARE] Comparing {target_env} call: {target_call.get('api_step')}")
+            logger.info(f"[COMPARE] Comparing {target_env} call: {target_call.api_step}")
             staging_call = self._find_matching_call(
                 target_call,
                 staging_calls
             )
 
             if staging_call:
-                logger.info(f"[COMPARE] Found matching STAGING call for: {target_call.get('api_step')}")
+                logger.info(f"[COMPARE] Found matching STAGING call for: {target_call.api_step}")
                 comparison = self.comparison_service.compare_api_calls(
                     execution_id=execution_id,
                     target_call=target_call,
@@ -511,9 +511,9 @@ class ExecutionService:
                 comparisons.append(
                     comparison[0].dict() if hasattr(comparison[0], 'dict') else comparison[0]
                 )
-                logger.info(f"[COMPARE] Added comparison for: {target_call.get('api_step')}")
+                logger.info(f"[COMPARE] Added comparison for: {target_call.api_step}")
             else:
-                logger.warning(f"[COMPARE] No matching STAGING call found for: {target_call.get('api_step')}")
+                logger.warning(f"[COMPARE] No matching STAGING call found for: {target_call.api_step}")
 
         logger.info(f"[COMPARE] Total comparisons generated: {len(comparisons)}")
         logger.info(f"[COMPARE] ===========================================")
@@ -522,12 +522,12 @@ class ExecutionService:
 
     def _find_matching_call(
         self,
-        target_call: Dict[str, Any],
-        calls: List[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
+        target_call: Any,  # APICall object
+        calls: List[Any]   # List of APICall objects
+    ) -> Optional[Any]:
         """Find matching API call by step name."""
         for call in calls:
-            if call["api_step"] == target_call["api_step"]:
+            if call.api_step == target_call.api_step:
                 return call
         return None
 
