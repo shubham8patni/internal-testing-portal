@@ -24,6 +24,14 @@ PAYMENT_CHECKOUT_FAILURE_CONFIG = {
     "failing_step": "payment_checkout"
 }
 
+# Configuration for simulated API failures
+PAYMENT_CHECKOUT_FAILURE_CONFIG = {
+    "category": "MV4",
+    "product_id": "TOKIO_MARINE",
+    "plan_id": "COMPREHENSIVE",
+    "failing_step": "payment_checkout"
+}
+
 
 def get_application_submit_response(
     category: str,

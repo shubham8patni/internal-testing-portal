@@ -133,16 +133,19 @@ class StorageService:
             execution_data: Execution results
         """
         # Parse execution_id to get session directory and filename
-        parts = execution_id.split('_', 3)  # session_id + date + timestamp + rest
-        if len(parts) < 4:
+        # Format: {username}_{date}_{timestamp}_{category}_{product}_{plan}
+        parts = execution_id.split('_')
+        if len(parts) < 6:  # Minimum: user + date + time + category + product + plan
             # Fallback for old format
             file_path = self.executions_dir / f"execution_{execution_id}.json"
         else:
-            session_dir = '_'.join(parts[:3])  # session_id
+            # Session directory: username_date_timestamp (first 3 parts)
+            session_dir = '_'.join(parts[:3])  # user_date_timestamp
+            # Filename: category_product_plan (remaining parts)
             filename = '_'.join(parts[3:])  # category_product_plan
             session_path = self.executions_dir / session_dir
             session_path.mkdir(parents=True, exist_ok=True)
-            file_path = session_path / f"{filename}.json"
+            file_path = session_path / f"{filename}_progress.json"
 
         self._atomic_write(file_path, execution_data)
         logger.debug(f"Execution data written: {execution_id} -> {file_path}")
@@ -158,15 +161,18 @@ class StorageService:
             Execution data or None if not found
         """
         # Parse execution_id to get session directory and filename
-        parts = execution_id.split('_', 3)
-        if len(parts) < 4:
+        # Format: {username}_{date}_{timestamp}_{category}_{product}_{plan}
+        parts = execution_id.split('_')
+        if len(parts) < 6:  # Minimum: user + date + time + category + product + plan
             # Fallback for old format
             file_path = self.executions_dir / f"execution_{execution_id}.json"
         else:
-            session_dir = '_'.join(parts[:3])
-            filename = '_'.join(parts[3:])
+            # Session directory: username_date_timestamp (first 3 parts)
+            session_dir = '_'.join(parts[:3])  # user_date_timestamp
+            # Filename: category_product_plan (remaining parts)
+            filename = '_'.join(parts[3:])  # category_product_plan
             session_path = self.executions_dir / session_dir
-            file_path = session_path / f"{filename}.json"
+            file_path = session_path / f"{filename}_progress.json"
 
         return self.read_json(file_path)
 
