@@ -61,7 +61,10 @@ async def start_execution(
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """
-    Start a new test execution with multiple Category+Product+Plan combinations.
+    Start a new test execution with sequential Category+Product+Plan combinations.
+
+    Uses the new ExecutionEngine for proper sequential processing with random delays,
+    failure handling, and real-time progress updates.
 
     Args:
         request: Execution start request with session_id, categories, auth tokens
@@ -73,51 +76,53 @@ async def start_execution(
         HTTPException: If session not found (404)
     """
     try:
-        execution_ids = execution_service.start_execution(request)
-        logger.info(f"Created {len(execution_ids)} executions for test in session {request.session_id}")
+        # Extract username from session_id (format: username_date_timestamp)
+        username = request.session_id.split('_')[0]
+        logger.info(f"[API-START] Starting execution for user {username}")
 
-        # Start sequential background execution of individual executions
+        # Prepare config for execution engine
+        config = {
+            "categories": request.categories if request.categories else [],
+            "target_environment": request.target_environment,
+            "admin_auth_token": request.admin_auth_token,
+            "customer_auth_token": request.customer_auth_token
+        }
+
+        # Generate execution IDs based on combinations (before actual execution)
+        from app.services.config_service import ConfigService
+        config_service = ConfigService()
+        combinations = config_service.get_all_combinations(config["categories"])
+
+        execution_ids = []
+        for combination in combinations:
+            execution_id = f"{username}_{request.target_environment.lower()}_{combination['category']}_{combination['product_id']}_{combination['plan_id']}"
+            execution_ids.append(execution_id)
+
+        logger.info(f"[API-START] Generated {len(execution_ids)} execution IDs")
+
+        # Start execution using new ExecutionEngine
         def background_execution():
             try:
-                logger.info(f"[BG-EXEC] Starting sequential execution of {len(execution_ids)} executions for session {request.session_id}")
-                for i, execution_id in enumerate(execution_ids):
-                    try:
-                        logger.info(f"[BG-EXEC] Starting execution {i+1}/{len(execution_ids)}: {execution_id}")
+                from app.services.execution_engine import ExecutionEngine
+                engine = ExecutionEngine()
 
-                        # Parse execution_id to get components
-                        parts = execution_id.split('_')
-                        category = parts[-3]
-                        product_id = parts[-2]
-                        plan_id = parts[-1]
+                logger.info(f"[API-START] Starting sequential execution for user {username}")
+                result = engine.execute_master(username, config)
 
-                        logger.debug(f"[BG-EXEC] Parsed components - category: {category}, product: {product_id}, plan: {plan_id}")
-
-                        execution_service.execute_single_execution(
-                            execution_id=execution_id,
-                            session_id=request.session_id,
-                            target_env=request.target_environment,
-                            category=category,
-                            product_id=product_id,
-                            plan_id=plan_id,
-                            admin_token=request.admin_auth_token,
-                            customer_token=request.customer_auth_token
-                        )
-                        logger.info(f"[BG-EXEC] Completed execution {i+1}/{len(execution_ids)}: {execution_id}")
-
-                    except Exception as e:
-                        logger.error(f"[BG-EXEC] Execution {execution_id} failed: {e}", exc_info=True)
-                        # Continue with next execution
-
-                logger.info(f"[BG-EXEC] All executions completed for session {request.session_id}")
+                if result["success"]:
+                    logger.info(f"[API-START] Sequential execution completed: {result['successful_combinations']}/{result['total_combinations']} combinations successful")
+                else:
+                    logger.error(f"[API-START] Sequential execution failed: {result.get('error')}")
 
             except Exception as e:
-                logger.error(f"[BG-EXEC] Background execution failed for session {request.session_id}: {e}", exc_info=True)
+                logger.error(f"[API-START] Background execution failed: {e}", exc_info=True)
 
-        # Run in background thread to avoid blocking the response
+        # Run in background thread
         import threading
         thread = threading.Thread(target=background_execution, daemon=True)
         thread.start()
-        logger.info(f"Test started with {len(execution_ids)} executions in session {request.session_id}")
+
+        logger.info(f"[API-START] Background execution thread started for user {username}")
 
         return ExecutionStartResponse(
             session_id=request.session_id,

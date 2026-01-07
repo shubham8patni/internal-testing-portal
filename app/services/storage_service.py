@@ -283,6 +283,21 @@ class StorageService:
             execution_file.unlink()
             logger.debug(f"Execution deleted: {execution_id} -> {execution_file}")
 
+    def create_session_directory(self, session_id: str) -> Path:
+        """
+        Create a session directory for storing execution results.
+
+        Args:
+            session_id: Session identifier (format: username_date_timestamp)
+
+        Returns:
+            Path to the created session directory
+        """
+        session_path = self.executions_dir / session_id
+        session_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Created session directory: {session_path}")
+        return session_path
+
     def cleanup_old_test_directories(self, max_test_dirs: int = 10):
         """
         Clean up old test directories using FIFO strategy.
