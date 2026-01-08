@@ -13,6 +13,7 @@ Execution Flow:
 
 import time
 import random
+import json
 import logging
 from typing import Dict, Any, List
 from pathlib import Path
@@ -38,7 +39,7 @@ class ExecutionEngine:
         self.config_service = ConfigService()
         self.storage_service = StorageService()
 
-    def execute_master(self, username: str, config: Dict[str, Any]) -> Dict[str, Any]:
+    def execute_master(self, username: str, session_id: str, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Master execution orchestrator.
 
@@ -46,17 +47,16 @@ class ExecutionEngine:
 
         Args:
             username: User identifier for session
+            session_id: Session identifier (format: username_date_timestamp)
             config: Configuration with categories, environment, tokens
 
         Returns:
             Dict with execution results summary
         """
         try:
-            logger.info(f"[EXEC-MASTER] Starting master execution for user {username}")
+            logger.info(f"[EXEC-MASTER] Starting master execution for user {username}, session {session_id}")
 
-            # Create session directory
-            timestamp = time.strftime("%Y%m%d_%H%M%S")
-            session_id = f"{username}_{timestamp}"
+            # Use the provided session_id for directory creation
             session_dir = self.storage_service.create_session_directory(session_id)
 
             logger.info(f"[EXEC-MASTER] Created session directory: {session_dir}")
@@ -211,6 +211,10 @@ class ExecutionEngine:
                 # Call appropriate API function
                 result = self._call_api_function(step_name, combination, application_id, config)
 
+                # Add environment to result for progress tracking
+                if isinstance(result, dict):
+                    result["environment"] = environment
+
                 # Store result
                 api_results.append(result)
 
@@ -343,10 +347,144 @@ class ExecutionEngine:
             final_file = session_dir / f"{combination_key}_complete.json"
 
             with open(final_file, 'w') as f:
-                import json
                 json.dump(execution_data, f, indent=2, default=str)
 
             logger.info(f"[EXEC-SAVE] Saved final results for {combination_key}")
 
         except Exception as e:
             logger.error(f"[EXEC-SAVE] Failed to save final results: {e}")
+
+    def get_session_progress(self, username: str, session_id: str) -> Dict[str, Any]:
+        """
+        Get progress for all executions in a session.
+
+        Reads progress from JSON files and returns structured data for UI polling.
+
+        Args:
+            username: User identifier
+            session_id: Session identifier
+
+        Returns:
+            Dict with session_id and executions progress data
+        """
+        try:
+            logger.debug(f"[PROGRESS] Getting progress for session {session_id}")
+
+            # Find session directory
+            session_dir = self.storage_service.create_session_directory(session_id)
+
+            executions_progress = {}
+            progress_files_found = 0
+
+            # Read all progress files in session directory
+            if session_dir.exists():
+                for progress_file in session_dir.glob("*_progress.json"):
+                    try:
+                        progress_files_found += 1
+
+                        # Extract combination from filename
+                        # Format: {category}_{product}_{plan}_progress.json
+                        filename = progress_file.stem  # Remove .json extension
+                        combination_key = filename.replace('_progress', '')
+
+                        # Read progress data
+                        with open(progress_file, 'r') as f:
+                            execution_data = json.load(f)
+
+                        # Extract API call statuses for progress
+                        api_calls = execution_data.get("api_calls", [])
+
+                        # Build progress map for UI
+                        progress_map = {}
+
+                        # Get all possible API steps (UI-expected keys without _call suffix)
+                        all_steps = [
+                            "application_submit",
+                            "apply_coupon",
+                            "payment_checkout",
+                            "admin_policy_list",
+                            "admin_policy_details",
+                            "customer_policy_list",
+                            "customer_policy_details"
+                        ]
+
+                        # Initialize all steps as "pending"
+                        for step in all_steps:
+                            progress_map[step] = "pending"
+
+                        # Find the last failed call to determine stopping point
+                        failed_step_index = None
+                        for i, call in enumerate(api_calls):
+                            if call.get('status_code', 200) != 200:
+                                failed_step_index = i
+                                break
+
+                        # Map API calls to progress steps (UI-expected keys)
+                        step_mapping = {
+                            "application_submit": "application_submit",
+                            "apply_coupon": "apply_coupon",
+                            "payment_checkout": "payment_checkout",
+                            "admin_policy_list": "admin_policy_list",
+                            "admin_policy_details": "admin_policy_details",
+                            "customer_policy_list": "customer_policy_list",
+                            "customer_policy_details": "customer_policy_details"
+                        }
+
+                        # Update progress based on API calls (use first call per step for DEV environment)
+                        dev_calls = {}
+                        for call in api_calls:
+                            api_step = call.get('api_step')
+                            status_code = call.get('status_code', 200)
+
+                            # Since environment field may be missing, use the first call for each step
+                            if api_step and api_step not in dev_calls:
+                                dev_calls[api_step] = call
+
+                        for api_step, call in dev_calls.items():
+                            status_code = call.get('status_code', 200)
+                            if api_step in step_mapping:
+                                ui_step = step_mapping[api_step]
+
+                                if status_code == 200:
+                                    progress_map[ui_step] = "succeed"
+                                else:
+                                    progress_map[ui_step] = "failed"
+
+                        # Mark steps after failure as "can_not_proceed"
+                        if failed_step_index is not None:
+                            # Find which step failed
+                            failed_call = api_calls[failed_step_index]
+                            failed_api_step = failed_call.get('api_step')
+
+                            if failed_api_step in step_mapping:
+                                failed_ui_step = step_mapping[failed_api_step]
+                                failed_index = all_steps.index(failed_ui_step)
+
+                                # Mark all subsequent steps as can_not_proceed
+                                for i in range(failed_index + 1, len(all_steps)):
+                                    progress_map[all_steps[i]] = "can_not_proceed"
+
+                        # Generate execution ID for UI
+                        execution_id = f"{username}_{session_id}_{combination_key}"
+
+                        executions_progress[execution_id] = progress_map
+
+                        logger.debug(f"[PROGRESS] Loaded progress for {combination_key}: {progress_map}")
+
+                    except Exception as e:
+                        logger.error(f"[PROGRESS] Failed to read progress file {progress_file}: {e}")
+                        continue
+
+            logger.info(f"[PROGRESS] Found {progress_files_found} progress files, returned {len(executions_progress)} execution progress entries")
+
+            return {
+                "session_id": session_id,
+                "executions": executions_progress
+            }
+
+        except Exception as e:
+            logger.error(f"[PROGRESS] Failed to get session progress for {session_id}: {e}", exc_info=True)
+            return {
+                "session_id": session_id,
+                "executions": {}
+            }

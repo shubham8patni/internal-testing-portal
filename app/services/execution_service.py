@@ -601,7 +601,7 @@ class ExecutionService:
         session_id: str
     ) -> ExecutionStatusResponse:
         """
-        Get overall execution status for a session.
+        Get overall execution status for a session using new session directory structure.
 
         Args:
             session_id: Session identifier
@@ -617,21 +617,63 @@ class ExecutionService:
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
-        total_executions = len(session.executions)
-        completed_executions = len([
-            e_id for e_id in session.executions
-            if self._is_execution_complete(e_id)
-        ])
-        failed_executions = len([
-            e_id for e_id in session.executions
-            if self._is_execution_failed(e_id)
-        ])
-        in_progress_executions = total_executions - completed_executions - failed_executions
+        # Use ExecutionEngine to get status from session directory
+        from app.services.execution_engine import ExecutionEngine
+        engine = ExecutionEngine()
 
-        overall_status = (
-            "completed" if in_progress_executions == 0
-            else "in_progress"
-        )
+        # Extract username from session_id (format: username_date_timestamp)
+        username = session_id.split('_')[0]
+
+        try:
+            # Get progress data to determine status
+            progress_data = engine.get_session_progress(username, session_id)
+            executions = progress_data.get("executions", {})
+
+            total_executions = len(executions)
+            completed_executions = 0
+            failed_executions = 0
+            in_progress_executions = 0
+
+            # Analyze each execution's progress
+            for execution_id, progress in executions.items():
+                # Count failed and can_not_proceed steps
+                failed_steps = sum(1 for step_status in progress.values()
+                                 if step_status in ["failed", "can_not_proceed"])
+                total_steps = len(progress)
+
+                if failed_steps > 0:
+                    failed_executions += 1
+                elif all(status == "succeed" for status in progress.values()):
+                    completed_executions += 1
+                else:
+                    # Has some succeed and pending - in progress
+                    in_progress_executions += 1
+
+            # If no executions found, check if session directory exists
+            if total_executions == 0:
+                session_dir = engine.storage_service.create_session_directory(session_id)
+                if session_dir.exists():
+                    # Session directory exists but no progress files yet - in progress
+                    in_progress_executions = 1
+                    total_executions = 1
+                else:
+                    # No session directory - not started
+                    total_executions = 1
+
+            overall_status = (
+                "completed" if in_progress_executions == 0 and total_executions > 0
+                else "in_progress" if total_executions > 0
+                else "pending"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to get progress data for status calculation: {e}")
+            # Fallback to basic status
+            total_executions = 1
+            completed_executions = 0
+            failed_executions = 0
+            in_progress_executions = 1
+            overall_status = "in_progress"
 
         return ExecutionStatusResponse(
             session_id=session_id,
@@ -644,7 +686,7 @@ class ExecutionService:
 
     def get_execution_tabs(self, session_id: str) -> TabsListResponse:
         """
-        Get all execution tabs for a session.
+        Get all execution tabs for a session using new session directory structure.
 
         Args:
             session_id: Session identifier
@@ -657,31 +699,88 @@ class ExecutionService:
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
-        tabs = []
+        # Use ExecutionEngine to get progress data
+        from app.services.execution_engine import ExecutionEngine
+        engine = ExecutionEngine()
 
-        for execution_id in session.executions:
-            execution_data = self.storage.read_execution(execution_id)
+        # Extract username from session_id (format: username_date_timestamp)
+        username = session_id.split('_')[0]
 
-            if execution_data:
-                combinations = execution_data.get("combinations", [])
-                total_tabs = len(combinations)
-                completed_tabs = execution_data.get("completed_tabs", 0)
-                status = execution_data.get("status", "unknown")
+        try:
+            progress_data = engine.get_session_progress(username, session_id)
+            executions = progress_data.get("executions", {})
 
-                for i, combination in enumerate(combinations, 1):
-                    tab_id = f"{execution_id}#{i}#{combination['category']}#{combination['product_name']}#{combination['plan_name']}"
+            tabs = []
 
-                    logger.info(f"Generated tab_id: {tab_id}")
+            for execution_id, progress in executions.items():
+                # Parse execution_id to get combination info
+                # Format: {username}_{session_id}_{category}_{product_id}_{plan_id}
+                parts = execution_id.split('_')
+                if len(parts) >= 5:
+                    category = parts[-3]
+                    product_id = parts[-2]
+                    plan_id = parts[-1]
+
+                    # Count API steps
+                    succeed_count = sum(1 for status in progress.values() if status == "succeed")
+                    failed_count = sum(1 for status in progress.values() if status == "failed")
+                    can_not_proceed_count = sum(1 for status in progress.values() if status == "can_not_proceed")
+                    total_steps = len(progress)
+
+                    # Determine tab status
+                    if failed_count > 0:
+                        status = "failed"
+                    elif can_not_proceed_count > 0:
+                        status = "failed"  # Failed combination that stopped early
+                    elif succeed_count == total_steps:
+                        status = "completed"
+                    else:
+                        status = "in_progress"
+
+                    # Create tab_id in expected format
+                    tab_id = f"tab_{session_id}_{category}_{product_id}_{plan_id}"
 
                     tabs.append({
                         "tab_id": tab_id,
-                        "status": "completed" if i <= completed_tabs else "in_progress" if status == "in_progress" else status,
-                        "api_calls_completed": min(completed_tabs, i) * 14,  # 14 calls per tab (2 env x 7 steps)
-                        "api_calls_total": total_tabs * 14,
-                        "has_failures": execution_data.get("has_failures", False)
+                        "status": status,
+                        "api_calls_completed": succeed_count + failed_count,  # DEV environment calls only
+                        "api_calls_total": total_steps,
+                        "has_failures": failed_count > 0 or can_not_proceed_count > 0
                     })
 
-                logger.info(f"Total tabs for session {session_id}: {len(tabs)}")
+                    logger.debug(f"Generated tab: {tab_id} - {status} ({succeed_count}/{total_steps} steps)")
+
+            # If no tabs found but session directory exists, return pending tabs
+            if not tabs:
+                session_dir = engine.storage_service.create_session_directory(session_id)
+                if session_dir.exists():
+                    # Try to infer tabs from config
+                    session_data = self.session_service.get_session_data(session_id)
+                    if session_data and "config" in session_data:
+                        config = session_data["config"]
+                        categories = config.get("categories", [])
+
+                        if categories:
+                            from app.services.config_service import ConfigService
+                            config_service = ConfigService()
+                            combinations = config_service.get_all_combinations(categories)
+
+                            for combination in combinations:
+                                tab_id = f"tab_{session_id}_{combination['category']}_{combination['product_id']}_{combination['plan_id']}"
+                                tabs.append({
+                                    "tab_id": tab_id,
+                                    "status": "pending",
+                                    "api_calls_completed": 0,
+                                    "api_calls_total": 7,  # 7 steps per tab
+                                    "has_failures": False
+                                })
+
+            logger.info(f"Total tabs for session {session_id}: {len(tabs)}")
+
+        except Exception as e:
+            logger.warning(f"Failed to get progress data for tabs: {e}")
+            # Fallback: return empty tabs list
+            tabs = []
 
         return TabsListResponse(
             session_id=session_id,

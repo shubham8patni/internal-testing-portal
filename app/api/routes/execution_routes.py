@@ -106,8 +106,8 @@ async def start_execution(
                 from app.services.execution_engine import ExecutionEngine
                 engine = ExecutionEngine()
 
-                logger.info(f"[API-START] Starting sequential execution for user {username}")
-                result = engine.execute_master(username, config)
+                logger.info(f"[API-START] Starting sequential execution for user {username}, session {request.session_id}")
+                result = engine.execute_master(username, request.session_id, config)
 
                 if result["success"]:
                     logger.info(f"[API-START] Sequential execution completed: {result['successful_combinations']}/{result['total_combinations']} combinations successful")
@@ -194,12 +194,12 @@ async def get_execution_tabs(
 
 
 @router.get("/progress/{session_id}", response_model=ExecutionProgressResponse)
-async def get_session_progress(
-    session_id: str,
-    execution_service: ExecutionService = Depends(get_execution_service)
-):
+async def get_session_progress(session_id: str):
     """
     Get progress for all executions in a session.
+
+    Reads progress from JSON files in the session directory and returns
+    structured data for UI polling with proper failure handling.
 
     Args:
         session_id: Session identifier
@@ -211,7 +211,13 @@ async def get_session_progress(
         HTTPException: If session not found (404)
     """
     try:
-        progress = execution_service.get_session_progress(session_id)
+        # Extract username from session_id (format: username_date_timestamp)
+        username = session_id.split('_')[0]
+
+        from app.services.execution_engine import ExecutionEngine
+        engine = ExecutionEngine()
+
+        progress = engine.get_session_progress(username, session_id)
         return progress
     except ValueError as e:
         logger.warning(f"Session not found: {session_id}")
@@ -241,12 +247,16 @@ async def get_api_call(
         HTTPException: If API call not found (404)
     """
     try:
-        session = execution_service.session_service.get_session(session_id)
+        storage_service = StorageService()
+        session_service = SessionService()
+
+        session = session_service.get_session(session_id)
 
         if not session:
             raise ValueError(f"Session not found: {session_id}")
 
         comparisons = []
+        execution_id = None  # Initialize to avoid unbound variable warning
 
         for execution_id in session.executions:
             execution_data = storage_service.read_execution(execution_id)
@@ -344,6 +354,7 @@ async def get_comparison(
             raise ValueError(f"Session not found: {session_id}")
 
         comparisons = []
+        execution_id = None  # Initialize to avoid unbound variable warning
 
         for execution_id in session.executions:
             execution_data = storage_service.read_execution(execution_id)

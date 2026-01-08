@@ -1,0 +1,158 @@
+{
+  "execution_id": "sess_20260108_004208_MV4_TOKIO_MARINE_COMPREHENSIVE",
+  "session_id": "sess_004158",
+  "username": "sess",
+  "category": "MV4",
+  "product_id": "TOKIO_MARINE",
+  "plan_id": "COMPREHENSIVE",
+  "target_environment": "QA",
+  "status": "completed_with_failures",
+  "api_calls": [
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_6578033570ed",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_6578033570ed",
+      "api_step": "application_submit",
+      "status_code": 200
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_1a7ad1243ca9",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_1a7ad1243ca9",
+      "api_step": "application_submit",
+      "status_code": 200
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_6578033570ed",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_6578033570ed",
+      "api_step": "apply_coupon",
+      "status_code": 200
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_6578033570ed",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_6578033570ed",
+      "api_step": "apply_coupon",
+      "status_code": 200
+    },
+    {
+      "success": false,
+      "error": "Payment processing failed",
+      "status_code": 400,
+      "api_step": "payment_checkout"
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "payment_checkout",
+      "environment": "STAGING",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "admin_policy_list",
+      "environment": "DEV",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "admin_policy_list",
+      "environment": "STAGING",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "admin_policy_details",
+      "environment": "DEV",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "admin_policy_details",
+      "environment": "STAGING",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "customer_policy_list",
+      "environment": "DEV",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "customer_policy_list",
+      "environment": "STAGING",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "customer_policy_details",
+      "environment": "DEV",
+      "status_code": 0
+    },
+    {
+      "success": false,
+      "error": "Execution stopped due to previous failure",
+      "api_step": "customer_policy_details",
+      "environment": "STAGING",
+      "status_code": 0
+    }
+  ],
+  "comparisons": [],
+  "reports": {},
+  "has_failures": true,
+  "created_at": 1767813128.6342518,
+  "completed_at": 1767813136.661188,
+  "total_api_calls": 14,
+  "successful_api_calls": 4
+}
