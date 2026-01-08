@@ -1,0 +1,595 @@
+{
+  "execution_id": "sess_20260108_232104_MV4_SOMPO_THIRD_PARTY",
+  "session_id": "sess_231947",
+  "username": "sess",
+  "category": "MV4",
+  "product_id": "SOMPO",
+  "plan_id": "THIRD_PARTY",
+  "target_environment": "QA",
+  "status": "completed",
+  "api_calls": [
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_803ee4cf8ec7",
+        "category": "MV4",
+        "product_id": "SOMPO",
+        "plan_id": "THIRD_PARTY",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_803ee4cf8ec7",
+      "api_step": "application_submit",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_e9a8f6769110",
+        "category": "MV4",
+        "product_id": "SOMPO",
+        "plan_id": "THIRD_PARTY",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_e9a8f6769110",
+      "api_step": "application_submit",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_803ee4cf8ec7",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_803ee4cf8ec7",
+      "api_step": "apply_coupon",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_803ee4cf8ec7",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_803ee4cf8ec7",
+      "api_step": "apply_coupon",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_803ee4cf8ec7",
+        "payment_id": "pay_faf5d4704bc7",
+        "transaction_ref": "TXN94ED922AEB",
+        "payment_method": "CREDIT_CARD",
+        "amount": 450.0,
+        "currency": "MYR",
+        "payment_date": "2026-01-03T00:00:00Z",
+        "payment_status": "completed",
+        "policy_number": "POL82616B86",
+        "message": "Payment processed successfully"
+      },
+      "application_id": "app_803ee4cf8ec7",
+      "policy_number": "POL82616B86",
+      "api_step": "payment_checkout",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_803ee4cf8ec7",
+        "payment_id": "pay_4fb11d0fe352",
+        "transaction_ref": "TXN9691861E34",
+        "payment_method": "CREDIT_CARD",
+        "amount": 450.0,
+        "currency": "MYR",
+        "payment_date": "2026-01-03T00:00:00Z",
+        "payment_status": "completed",
+        "policy_number": "POL987C8D76",
+        "message": "Payment processed successfully"
+      },
+      "application_id": "app_803ee4cf8ec7",
+      "policy_number": "POL987C8D76",
+      "api_step": "payment_checkout",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "admin_token": "admin_token_123",
+        "total_policies": 2,
+        "page": 1,
+        "limit": 50,
+        "policies": [
+          {
+            "policy_id": "policy_c11b69dafa3b",
+            "policy_number": "POLB963C4AA",
+            "customer_name": "John Doe",
+            "category": "MV4",
+            "product_id": "TOKIO_MARINE",
+            "plan_id": "COMPREHENSIVE",
+            "premium": 450.0,
+            "policy_status": "active",
+            "issue_date": "2026-01-03"
+          },
+          {
+            "policy_id": "policy_f43c74522915",
+            "policy_number": "POLFE608737",
+            "customer_name": "Jane Smith",
+            "category": "TRAVEL",
+            "product_id": "SOMPO",
+            "plan_id": "TRAVEL_COMPREHENSIVE",
+            "premium": 300.0,
+            "policy_status": "active",
+            "issue_date": "2026-01-02"
+          }
+        ]
+      },
+      "policies": [
+        {
+          "policy_id": "policy_c11b69dafa3b",
+          "policy_number": "POLB963C4AA",
+          "customer_name": "John Doe",
+          "category": "MV4",
+          "product_id": "TOKIO_MARINE",
+          "plan_id": "COMPREHENSIVE",
+          "premium": 450.0,
+          "policy_status": "active",
+          "issue_date": "2026-01-03"
+        },
+        {
+          "policy_id": "policy_f43c74522915",
+          "policy_number": "POLFE608737",
+          "customer_name": "Jane Smith",
+          "category": "TRAVEL",
+          "product_id": "SOMPO",
+          "plan_id": "TRAVEL_COMPREHENSIVE",
+          "premium": 300.0,
+          "policy_status": "active",
+          "issue_date": "2026-01-02"
+        }
+      ],
+      "api_step": "admin_policy_list",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "admin_token": "admin_token_123",
+        "total_policies": 2,
+        "page": 1,
+        "limit": 50,
+        "policies": [
+          {
+            "policy_id": "policy_281587101bb4",
+            "policy_number": "POLB22843AD",
+            "customer_name": "John Doe",
+            "category": "MV4",
+            "product_id": "TOKIO_MARINE",
+            "plan_id": "COMPREHENSIVE",
+            "premium": 450.0,
+            "policy_status": "active",
+            "issue_date": "2026-01-03"
+          },
+          {
+            "policy_id": "policy_161c064c3108",
+            "policy_number": "POL42175BDE",
+            "customer_name": "Jane Smith",
+            "category": "TRAVEL",
+            "product_id": "SOMPO",
+            "plan_id": "TRAVEL_COMPREHENSIVE",
+            "premium": 300.0,
+            "policy_status": "active",
+            "issue_date": "2026-01-02"
+          }
+        ]
+      },
+      "policies": [
+        {
+          "policy_id": "policy_281587101bb4",
+          "policy_number": "POLB22843AD",
+          "customer_name": "John Doe",
+          "category": "MV4",
+          "product_id": "TOKIO_MARINE",
+          "plan_id": "COMPREHENSIVE",
+          "premium": 450.0,
+          "policy_status": "active",
+          "issue_date": "2026-01-03"
+        },
+        {
+          "policy_id": "policy_161c064c3108",
+          "policy_number": "POL42175BDE",
+          "customer_name": "Jane Smith",
+          "category": "TRAVEL",
+          "product_id": "SOMPO",
+          "plan_id": "TRAVEL_COMPREHENSIVE",
+          "premium": 300.0,
+          "policy_status": "active",
+          "issue_date": "2026-01-02"
+        }
+      ],
+      "api_step": "admin_policy_list",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL8A2C4BE6",
+        "customer_name": "John Doe",
+        "customer_email": "john.doe@example.com",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "coverage": {
+          "vehicle_type": "Car",
+          "vehicle_make": "Toyota",
+          "vehicle_model": "Camry",
+          "vehicle_year": "2022",
+          "registration_number": "ABC1234"
+        },
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "issue_date": "2026-01-03",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31"
+      },
+      "policy": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL8A2C4BE6",
+        "customer_name": "John Doe",
+        "customer_email": "john.doe@example.com",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "coverage": {
+          "vehicle_type": "Car",
+          "vehicle_make": "Toyota",
+          "vehicle_model": "Camry",
+          "vehicle_year": "2022",
+          "registration_number": "ABC1234"
+        },
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "issue_date": "2026-01-03",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31"
+      },
+      "api_step": "admin_policy_details",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL1BFAE380",
+        "customer_name": "John Doe",
+        "customer_email": "john.doe@example.com",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "coverage": {
+          "vehicle_type": "Car",
+          "vehicle_make": "Toyota",
+          "vehicle_model": "Camry",
+          "vehicle_year": "2022",
+          "registration_number": "ABC1234"
+        },
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "issue_date": "2026-01-03",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31"
+      },
+      "policy": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL1BFAE380",
+        "customer_name": "John Doe",
+        "customer_email": "john.doe@example.com",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "coverage": {
+          "vehicle_type": "Car",
+          "vehicle_make": "Toyota",
+          "vehicle_model": "Camry",
+          "vehicle_year": "2022",
+          "registration_number": "ABC1234"
+        },
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "issue_date": "2026-01-03",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31"
+      },
+      "api_step": "admin_policy_details",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "customer_token": "customer_token_123",
+        "total_policies": 1,
+        "page": 1,
+        "limit": 50,
+        "policies": [
+          {
+            "policy_id": "policy_18a10019194c",
+            "policy_number": "POL2B22B85D",
+            "category": "MV4",
+            "product_id": "TOKIO_MARINE",
+            "plan_id": "COMPREHENSIVE",
+            "premium": 450.0,
+            "policy_status": "active",
+            "renewal_date": "2027-01-31"
+          }
+        ]
+      },
+      "policies": [
+        {
+          "policy_id": "policy_18a10019194c",
+          "policy_number": "POL2B22B85D",
+          "category": "MV4",
+          "product_id": "TOKIO_MARINE",
+          "plan_id": "COMPREHENSIVE",
+          "premium": 450.0,
+          "policy_status": "active",
+          "renewal_date": "2027-01-31"
+        }
+      ],
+      "api_step": "customer_policy_list",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "customer_token": "customer_token_123",
+        "total_policies": 1,
+        "page": 1,
+        "limit": 50,
+        "policies": [
+          {
+            "policy_id": "policy_b9fd89b96605",
+            "policy_number": "POLA16D08B9",
+            "category": "MV4",
+            "product_id": "TOKIO_MARINE",
+            "plan_id": "COMPREHENSIVE",
+            "premium": 450.0,
+            "policy_status": "active",
+            "renewal_date": "2027-01-31"
+          }
+        ]
+      },
+      "policies": [
+        {
+          "policy_id": "policy_b9fd89b96605",
+          "policy_number": "POLA16D08B9",
+          "category": "MV4",
+          "product_id": "TOKIO_MARINE",
+          "plan_id": "COMPREHENSIVE",
+          "premium": 450.0,
+          "policy_status": "active",
+          "renewal_date": "2027-01-31"
+        }
+      ],
+      "api_step": "customer_policy_list",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POLABE57DFD",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31",
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "exclusions": [
+          "Driving under influence",
+          "Unauthorized driver",
+          "Racing competitions"
+        ],
+        "contact_support": {
+          "phone": "+601800123456",
+          "email": "support@insurance.com",
+          "hours": "24/7"
+        }
+      },
+      "policy": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POLABE57DFD",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31",
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "exclusions": [
+          "Driving under influence",
+          "Unauthorized driver",
+          "Racing competitions"
+        ],
+        "contact_support": {
+          "phone": "+601800123456",
+          "email": "support@insurance.com",
+          "hours": "24/7"
+        }
+      },
+      "api_step": "customer_policy_details",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL6E2FBDFE",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31",
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "exclusions": [
+          "Driving under influence",
+          "Unauthorized driver",
+          "Racing competitions"
+        ],
+        "contact_support": {
+          "phone": "+601800123456",
+          "email": "support@insurance.com",
+          "hours": "24/7"
+        }
+      },
+      "policy": {
+        "status": "success",
+        "policy_id": "policy_12345",
+        "policy_number": "POL6E2FBDFE",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 450.0,
+        "sum_insured": 50000.0,
+        "currency": "MYR",
+        "policy_status": "active",
+        "start_date": "2026-02-01",
+        "end_date": "2027-01-31",
+        "benefits": [
+          "Third Party Liability",
+          "Own Damage",
+          "Windscreen Coverage",
+          "Legal Liability to Passengers"
+        ],
+        "exclusions": [
+          "Driving under influence",
+          "Unauthorized driver",
+          "Racing competitions"
+        ],
+        "contact_support": {
+          "phone": "+601800123456",
+          "email": "support@insurance.com",
+          "hours": "24/7"
+        }
+      },
+      "api_step": "customer_policy_details",
+      "status_code": 200,
+      "environment": "STAGING"
+    }
+  ],
+  "comparisons": [],
+  "reports": {},
+  "has_failures": false,
+  "created_at": 1767894664.068931,
+  "completed_at": 1767894685.1205423,
+  "total_api_calls": 14,
+  "successful_api_calls": 14
+}

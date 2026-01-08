@@ -1,0 +1,97 @@
+{
+  "execution_id": "sess_20260108_221235_MV4_TOKIO_MARINE_COMPREHENSIVE",
+  "session_id": "sess_221227",
+  "username": "sess",
+  "category": "MV4",
+  "product_id": "TOKIO_MARINE",
+  "plan_id": "COMPREHENSIVE",
+  "target_environment": "DEV",
+  "status": "in_progress",
+  "api_calls": [
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_163f75d1f439",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_163f75d1f439",
+      "api_step": "application_submit",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_254dc16e4a05",
+        "category": "MV4",
+        "product_id": "TOKIO_MARINE",
+        "plan_id": "COMPREHENSIVE",
+        "premium": 500.0,
+        "currency": "MYR",
+        "application_date": "2026-01-03T00:00:00Z",
+        "next_step": "apply_coupon",
+        "message": "Application submitted successfully"
+      },
+      "application_id": "app_254dc16e4a05",
+      "api_step": "application_submit",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_163f75d1f439",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_163f75d1f439",
+      "api_step": "apply_coupon",
+      "status_code": 200,
+      "environment": "DEV"
+    },
+    {
+      "success": true,
+      "data": {
+        "status": "success",
+        "application_id": "app_163f75d1f439",
+        "coupon_code": "SAVE10",
+        "discount_percent": 10,
+        "original_amount": 500.0,
+        "discount_amount": 50.0,
+        "new_amount": 450.0,
+        "currency": "MYR",
+        "message": "Coupon applied successfully. You saved 10%!"
+      },
+      "application_id": "app_163f75d1f439",
+      "api_step": "apply_coupon",
+      "status_code": 200,
+      "environment": "STAGING"
+    },
+    {
+      "success": false,
+      "error": "Payment processing failed",
+      "status_code": 400,
+      "api_step": "payment_checkout",
+      "environment": "DEV"
+    }
+  ],
+  "comparisons": [],
+  "reports": {},
+  "has_failures": true,
+  "created_at": 1767890555.5383837
+}

@@ -115,7 +115,39 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Get progress from polling data (will be updated by polling)
             const progressData = window.executionProgressData || {};
             const executions = progressData.executions || {};
-            const executionProgress = executions[executionId] || {};
+            let executionProgress = executions[executionId] || {};
+
+            console.log(`[DEBUG] Looking for progress of execution: ${executionId}`);
+            console.log(`[DEBUG] Available execution IDs in progress data: ${Object.keys(executions)}`);
+            console.log(`[DEBUG] Initial progress data found:`, executionProgress);
+
+            // Fallback: If no progress found for the execution ID, try to find it by combination matching
+            if (!executionProgress || Object.keys(executionProgress).length === 0) {
+                console.log(`[DEBUG] No progress found for ${executionId}, trying fallback matching`);
+
+                // Extract combination from execution ID
+                const execParts = executionId.split('_');
+                if (execParts.length >= 3) {
+                    const execCombination = execParts.slice(-3).join('_');
+                    console.log(`[DEBUG] Looking for combination: ${execCombination}`);
+
+                    // Look for any backend execution that matches this combination
+                    for (const [backendId, progress] of Object.entries(executions)) {
+                        const backendParts = backendId.split('_');
+                        if (backendParts.length >= 3) {
+                            const backendCombination = backendParts.slice(-3).join('_');
+                            console.log(`[DEBUG] Checking backend combination: ${backendCombination}`);
+                            if (backendCombination === execCombination) {
+                                executionProgress = progress;
+                                console.log(`[DEBUG] ✅ Found matching progress via fallback: ${backendId} -> ${executionId}`);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            console.log(`[DEBUG] Final progress data for ${executionId}:`, executionProgress);
 
             const tabContent = document.getElementById('tab-content');
 
@@ -191,20 +223,116 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Map backend progress execution IDs to frontend execution IDs
+    function mapExecutionIds(backendExecutions, frontendExecutionIds) {
+        const progressMapping = {};
+        const backendIds = Object.keys(backendExecutions);
+
+        console.log('[ID-MAP] ========== STARTING EXECUTION ID MAPPING ==========');
+        console.log('[ID-MAP] ========== STARTING EXECUTION ID MAPPING ==========');
+        console.log('[ID-MAP] Backend execution IDs:', backendIds);
+        console.log('[ID-MAP] Frontend execution IDs:', frontendExecutionIds);
+        console.log('[ID-MAP] Backend executions count:', backendIds.length);
+        console.log('[ID-MAP] Frontend executions count:', frontendExecutionIds.length);
+
+        backendIds.forEach(backendId => {
+            console.log(`[ID-MAP] Processing backend ID: ${backendId}`);
+            // Backend format: sess_sess_20260107_230800_MV4_SOMPO_COMPREHENSIVE
+            // Frontend format: sess_DEV_MV4_SOMPO_COMPREHENSIVE
+
+            // Extract combination part (last 3 segments: MV4_SOMPO_COMPREHENSIVE)
+            const parts = backendId.split('_');
+            console.log(`[ID-MAP] Backend ID parts:`, parts);
+
+            if (parts.length >= 3) {
+                const combinationPart = parts.slice(-3).join('_');
+                console.log(`[ID-MAP] Extracted combination: ${combinationPart}`);
+
+                // Find matching frontend execution ID that ends with the same combination
+                const matchingFrontendId = frontendExecutionIds.find(frontendId => {
+                    const endsWith = frontendId.endsWith(combinationPart);
+                    console.log(`[ID-MAP] Checking frontend ID ${frontendId}: endsWith(${combinationPart}) = ${endsWith}`);
+                    return endsWith;
+                });
+
+                if (matchingFrontendId) {
+                    progressMapping[matchingFrontendId] = backendExecutions[backendId];
+                    console.log(`[ID-MAP] ✅ SUCCESSFUL MAPPING: ${backendId} -> ${matchingFrontendId}`);
+                } else {
+                    console.warn(`[ID-MAP] ⚠️  NO MATCH FOUND for backend ID: ${backendId} (combination: ${combinationPart})`);
+                    console.warn(`[ID-MAP] Available frontend IDs for matching:`, frontendExecutionIds);
+                }
+            } else {
+                console.error(`[ID-MAP] ❌ INVALID BACKEND ID FORMAT: ${backendId} (only ${parts.length} parts)`);
+            }
+        });
+
+        console.log('[ID-MAP] ========== MAPPING COMPLETE ==========');
+        console.log('[ID-MAP] Successfully mapped executions:', Object.keys(progressMapping).length);
+        console.log('[ID-MAP] Final mapping result:', Object.keys(progressMapping));
+        console.log('[ID-MAP] ======================================');
+
+        return progressMapping;
+    }
+
     // Load execution progress and overall status
     async function loadExecutionProgressData() {
         try {
             console.log('[DEBUG] Loading execution progress for session:', sessionId);
-            const data = await window.testingPortal.apiCall(`/api/execution/progress/${sessionId}`);
-            console.log('[DEBUG] Progress response:', data);
+            console.log('[DEBUG] Current executionIds state:', executionIds);
 
-            // Store globally for individual execution loading
-            window.executionProgressData = data;
+            const data = await window.testingPortal.apiCall(`/api/execution/progress/${sessionId}`);
+            console.log('[DEBUG] Raw progress response:', data);
+            console.log('[DEBUG] Backend execution IDs in response:', Object.keys(data.executions || {}));
+
+            // Apply ID mapping to bridge backend progress format with frontend execution IDs
+            let mappedExecutions = {};
+
+            if (executionIds && executionIds.length > 0) {
+                console.log('[DEBUG] Using executionIds for mapping:', executionIds);
+                mappedExecutions = mapExecutionIds(data.executions || {}, executionIds);
+            } else {
+                console.warn('[WARN] No executionIds available, attempting to infer from progress data');
+                // Fallback: try to use backend data directly
+                // This handles cases where sessionStorage is missing but progress API has data
+                mappedExecutions = data.executions || {};
+
+                // Try to extract frontend-style IDs from backend data
+                const backendIds = Object.keys(mappedExecutions);
+                if (backendIds.length > 0) {
+                    // Extract combination parts and create frontend-style IDs
+                    const inferredFrontendIds = backendIds.map(backendId => {
+                        const parts = backendId.split('_');
+                        if (parts.length >= 3) {
+                            const combinationPart = parts.slice(-3).join('_');
+                            return `sess_DEV_${combinationPart}`; // Assume DEV environment
+                        }
+                        return backendId;
+                    });
+
+                    console.log('[WARN] Inferred frontend IDs:', inferredFrontendIds);
+                    mappedExecutions = mapExecutionIds(data.executions || {}, inferredFrontendIds);
+                }
+            }
+
+            // Fallback: if mapping failed completely, show warning and use raw data
+            if (Object.keys(mappedExecutions).length === 0 && Object.keys(data.executions || {}).length > 0) {
+                console.warn('[ID-MAP] ⚠️  No successful ID mappings found! Using raw backend data as fallback.');
+                console.warn('[ID-MAP] This may cause progress display issues.');
+                window.executionProgressData = data;
+            } else {
+                // Store globally with mapped execution IDs for individual execution loading
+                window.executionProgressData = {
+                    ...data,
+                    executions: mappedExecutions
+                };
+                console.log('[DEBUG] Mapped progress data available:', Object.keys(mappedExecutions));
+            }
 
             // Update overall status
             const statusDiv = document.getElementById('overall-status');
             if (statusDiv) {
-                const executions = data.executions || {};
+                const executions = mappedExecutions;
                 const totalExecutions = Object.keys(executions).length;
                 const completedExecutions = Object.values(executions).filter(exec =>
                     Object.values(exec).every(status => status === 'succeed')
