@@ -22,7 +22,7 @@ from app.schemas.execution import (
     TabProgressResponse,
     ExecutionProgressResponse
 )
-from app.schemas.comparison import APICallDetails, ComparisonResponse
+from app.schemas.comparison import APICallDetails, ComparisonResponse, ApiComparisonResponse
 from app.services.execution_service import ExecutionService
 from app.services.storage_service import StorageService
 from app.services.session_service import SessionService
@@ -397,3 +397,36 @@ async def get_comparison(
     except Exception as e:
         logger.error(f"Failed to get comparison: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{execution_id}/compare/{api_step}", response_model=ApiComparisonResponse)
+async def get_api_comparison(
+    execution_id: str,
+    api_step: str,
+    execution_service: ExecutionService = Depends(get_execution_service)
+):
+    """
+    Get API response comparison for target vs staging environments.
+
+    This endpoint allows users to compare the actual API responses between
+    DEV/QA (target) and STAGING environments for a specific API step.
+
+    Args:
+        execution_id: Frontend execution ID (e.g., sess_DEV_MV4_SOMPO_COMPREHENSIVE)
+        api_step: API step name (application_submit, apply_coupon, etc.)
+
+    Returns:
+        Structured comparison data with both environment responses
+
+    Raises:
+        HTTPException: If execution or API step not found (404)
+    """
+    try:
+        result = execution_service.get_api_comparison(execution_id, api_step)
+        return result
+    except ValueError as e:
+        logger.warning(f"API comparison not found: {e}")
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get API comparison: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to load comparison data")

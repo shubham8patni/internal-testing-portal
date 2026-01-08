@@ -950,3 +950,204 @@ class ExecutionService:
             "session_id": session_id,
             "executions": executions_progress
         }
+
+    def get_api_comparison(self, execution_id: str, api_step: str) -> Dict[str, Any]:
+        """
+        Get API response comparison data for target vs staging environments.
+
+        Args:
+            execution_id: Frontend execution ID (e.g., sess_DEV_MV4_SOMPO_COMPREHENSIVE)
+            api_step: API step name (application_submit, apply_coupon, etc.)
+
+        Returns:
+            Structured comparison data with both environment responses
+
+        Raises:
+            ValueError: If execution or API step not found
+        """
+        # Validate API step
+        valid_steps = [
+            'application_submit', 'apply_coupon', 'payment_checkout',
+            'admin_policy_list', 'admin_policy_details',
+            'customer_policy_list', 'customer_policy_details'
+        ]
+
+        if api_step not in valid_steps:
+            raise ValueError(f"Invalid API step: {api_step}. Must be one of: {', '.join(valid_steps)}")
+
+        # Validate execution ID format
+        if not execution_id or '_' not in execution_id:
+            raise ValueError(f"Invalid execution ID format: {execution_id}")
+
+        # Parse execution ID to components
+        components = self._parse_execution_id(execution_id)
+
+        # Find progress file
+        progress_file = self._find_progress_file(components)
+
+        # Extract comparison data
+        return self._extract_comparison_data(progress_file, api_step, components)
+
+    def _parse_execution_id(self, execution_id: str) -> Dict[str, str]:
+        """
+        Parse frontend execution ID into components.
+
+        Format: {username}_{environment}_{category}_{product_id}_{plan_id}
+        Example: sess_DEV_MV4_SOMPO_COMPREHENSIVE
+        Note: product_id and plan_id can contain underscores (e.g., TOKIO_MARINE_COMPREHENSIVE)
+        """
+        parts = execution_id.split('_')
+        if len(parts) < 5:
+            raise ValueError(f"Invalid execution ID format: {execution_id}. Expected at least 5 parts, got {len(parts)}")
+
+        # First 3 parts are fixed: username, environment, category
+        username = parts[0]
+        environment = parts[1]
+        category = parts[2]
+
+        # Remaining parts: need to reconstruct product_id and plan_id
+        # We know the structure is: username_env_category_productId_planId
+        # So everything after category goes to a combined string, then we need to intelligently split
+        remaining = '_'.join(parts[3:])
+
+        # Common patterns for splitting product_id and plan_id
+        # Look for known plan names at the end
+        known_plans = ['COMPREHENSIVE', 'THIRD_PARTY', 'TOTAL_LOSS', 'BASIC', 'PREMIUM', 'STANDARD']
+
+        product_id = remaining
+        plan_id = ''
+
+        for plan in known_plans:
+            if remaining.endswith(f'_{plan}'):
+                # Found a known plan at the end
+                product_id = remaining[:-len(f'_{plan}')]
+                plan_id = plan
+                break
+
+        # If no known plan found, assume the last part is the plan
+        if not plan_id:
+            last_underscore = remaining.rfind('_')
+            if last_underscore > 0:
+                product_id = remaining[:last_underscore]
+                plan_id = remaining[last_underscore + 1:]
+            else:
+                # Fallback: treat everything as product_id with empty plan
+                product_id = remaining
+                plan_id = 'UNKNOWN'
+
+        return {
+            'username': username,
+            'environment': environment,
+            'category': category,
+            'product_id': product_id,
+            'plan_id': plan_id
+        }
+
+    def _find_progress_file(self, components: Dict[str, str]) -> str:
+        """
+        Find the correct progress file for the execution.
+
+        Strategy: Look in executions directory for matching components
+        """
+        from pathlib import Path
+
+        executions_dir = Path("storage/executions")
+        if not executions_dir.exists():
+            raise ValueError("Executions storage directory not found")
+
+        # Find session directories for this username (most recent first)
+        username = components['username']
+        session_dirs = sorted(
+            [d for d in executions_dir.iterdir() if d.is_dir() and d.name.startswith(f"{username}_")],
+            key=lambda x: x.stat().st_mtime,
+            reverse=True  # Most recent first
+        )
+
+        if not session_dirs:
+            raise ValueError(f"No session directories found for user: {username}")
+
+        # Look for progress file in each session directory (most recent first)
+        expected_filename = f"{components['category']}_{components['product_id']}_{components['plan_id']}_progress.json"
+
+        for session_dir in session_dirs:
+            progress_file = session_dir / expected_filename
+            if progress_file.exists():
+                return str(progress_file)
+
+        raise ValueError(f"Progress file not found for execution: {expected_filename}")
+
+    def _extract_comparison_data(self, progress_file: str, api_step: str, components: Dict[str, str]) -> Dict[str, Any]:
+        """
+        Extract comparison data from progress file.
+
+        Returns structured data with target and staging responses.
+        """
+        import json
+        from pathlib import Path
+
+        try:
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+
+            api_calls = progress_data.get('api_calls', [])
+
+            # Find target and staging calls for this API step
+            target_call = None
+            staging_call = None
+
+            for call in api_calls:
+                if call.get('api_step') == api_step:
+                    env = call.get('environment', '').upper()
+                    if env == 'DEV':  # Target environment (can be configured)
+                        target_call = call
+                    elif env == 'STAGING':
+                        staging_call = call
+
+            # Build response structure
+            result = {
+                'api_step': api_step,
+                'execution_id': f"{components['username']}_{components['environment']}_{components['category']}_{components['product_id']}_{components['plan_id']}",
+                'target_environment': 'DEV',  # Configurable
+                'staging_environment': 'STAGING',
+                'target_response': self._format_response(target_call),
+                'staging_response': self._format_response(staging_call),
+                'comparison_metadata': {
+                    'category': components['category'],
+                    'product_id': components['product_id'],
+                    'plan_id': components['plan_id'],
+                    'session_id': str(Path(progress_file).parent.name),
+                    'progress_file': progress_file
+                }
+            }
+
+            return result
+
+        except FileNotFoundError:
+            raise ValueError(f"Progress file not found: {progress_file}")
+        except json.JSONDecodeError:
+            raise ValueError(f"Invalid JSON in progress file: {progress_file}")
+        except Exception as e:
+            raise ValueError(f"Error reading progress file: {str(e)}")
+
+    def _format_response(self, api_call: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Format API call response for comparison display.
+
+        Handles both success and error cases, showing full error objects.
+        """
+        if not api_call:
+            return {
+                'status_code': None,
+                'success': None,
+                'data': None,
+                'error': {'message': 'Response data not available'},
+                'timestamp': None
+            }
+
+        return {
+            'status_code': api_call.get('status_code'),
+            'success': api_call.get('success'),
+            'data': api_call.get('data'),
+            'error': api_call.get('error'),  # Show full error object
+            'timestamp': api_call.get('timestamp')
+        }

@@ -196,11 +196,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     statusText = 'PENDING';
                 }
 
+                // Only make status badges clickable for succeed/failed/can_not_proceed statuses
+                const isClickable = ['succeed', 'failed', 'can_not_proceed'].includes(status);
+                const clickHandler = isClickable ? `onclick="openApiComparison('${executionId}', '${step}')"` : '';
+                const cursorStyle = isClickable ? 'cursor: pointer;' : '';
+
                 html += `
                     <div class="api-item ${statusClass}">
                         <div class="api-header">
                             <span class="api-name">${step.replace('_', ' ').toUpperCase()}</span>
-                            <span class="status-badge ${statusClass === 'completed' ? 'status-completed' : statusClass === 'failed' ? 'status-failed' : statusClass === 'can_not_proceed' ? 'status-can-not-proceed' : 'status-pending'}">
+                            <span class="status-badge api-status-badge ${statusClass === 'completed' ? 'status-completed' : statusClass === 'failed' ? 'status-failed' : statusClass === 'can_not_proceed' ? 'status-can-not-proceed' : 'status-pending'}"
+                                  ${clickHandler}
+                                  style="${cursorStyle}"
+                                  title="${isClickable ? 'Click to compare API responses' : ''}">
                                 ${statusIcon} ${statusText}
                             </span>
                         </div>
@@ -386,4 +394,333 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('beforeunload', () => {
         window.testingPortal.stopPolling(pollingInterval);
     });
+
+    // ========================================
+    // API COMPARISON MODAL FUNCTIONALITY
+    // ========================================
+
+    // Global modal state
+    let apiComparisonModal = null;
+    let targetJsonEditor = null;
+    let stagingJsonEditor = null;
+
+    // Initialize modal when page loads
+    apiComparisonModal = document.getElementById('api-comparison-modal');
+
+    // Open API comparison modal
+    async function openApiComparison(executionId, apiStep) {
+        console.log(`[MODAL] Opening API comparison modal for ${executionId} - ${apiStep}`);
+
+        if (!apiComparisonModal) {
+            console.error('[MODAL] Modal element not found');
+            showError('Modal component not found. Please refresh the page.');
+            return;
+        }
+
+        // Show modal and loading state
+        apiComparisonModal.classList.remove('hidden');
+        showModalLoading();
+
+        // Update modal header
+        updateModalHeader(apiStep, executionId);
+
+        try {
+            // Fetch comparison data from backend API
+            const response = await window.testingPortal.apiCall(
+                `/api/execution/${executionId}/compare/${apiStep}`
+            );
+
+            console.log('[MODAL] Comparison data received:', response);
+
+            // Display comparison data
+            displayApiComparison(response);
+
+        } catch (error) {
+            console.error('[MODAL] Failed to load comparison data:', error);
+            showModalError('Failed to load API comparison data. Please try again.');
+        }
+    }
+
+    // Close API comparison modal
+    function closeApiComparisonModal() {
+        console.log('[MODAL] Closing API comparison modal');
+
+        if (apiComparisonModal) {
+            apiComparisonModal.classList.add('hidden');
+
+            // Clean up JSON editors
+            cleanupJsonEditors();
+        }
+    }
+
+    // Update modal header with API and execution info
+    function updateModalHeader(apiStep, executionId) {
+        const apiStepBadge = document.getElementById('modal-api-step');
+        const executionContext = document.getElementById('modal-execution-context');
+
+        if (apiStepBadge) {
+            apiStepBadge.textContent = apiStep.replace('_', ' ').toUpperCase();
+        }
+
+        if (executionContext && executionId) {
+            // Parse execution ID to show readable context
+            const parts = executionId.split('_');
+            if (parts.length >= 5) {
+                const category = parts[2];
+                const product = parts[3];
+                const plan = parts[4];
+                executionContext.textContent = `${category} → ${product} → ${plan}`;
+            } else {
+                executionContext.textContent = executionId;
+            }
+        }
+    }
+
+    // Display API comparison data
+    function displayApiComparison(data) {
+        console.log('[MODAL] Displaying API comparison data');
+
+        // Update environment labels
+        const targetEnvSpan = document.getElementById('target-env');
+        if (targetEnvSpan) {
+            targetEnvSpan.textContent = data.target_environment || 'DEV';
+        }
+
+        // Display target response
+        displayApiResponse('target-json-container', data.target_response, 'target');
+
+        // Display staging response
+        displayApiResponse('staging-json-container', data.staging_response, 'staging');
+
+        // Hide loading state
+        hideModalLoading();
+    }
+
+    // Display individual API response
+    function displayApiResponse(containerId, responseData, environment) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`[MODAL] Container ${containerId} not found`);
+            return;
+        }
+
+        // Update status indicator
+        updateStatusIndicator(environment, responseData);
+
+        // Clear previous content
+        container.innerHTML = '';
+
+        try {
+            // Determine what data to display
+            let jsonData = null;
+            let displayMode = 'view';
+
+            if (responseData.success === false && responseData.error) {
+                // Failed API call - show full error object
+                jsonData = responseData.error;
+                console.log(`[MODAL] Displaying error data for ${environment}:`, jsonData);
+            } else if (responseData.success === true && responseData.data) {
+                // Successful API call - show response data
+                jsonData = responseData.data;
+                console.log(`[MODAL] Displaying success data for ${environment}:`, jsonData);
+            } else {
+                // No data available
+                jsonData = { message: 'No response data available' };
+                console.log(`[MODAL] No data available for ${environment}`);
+            }
+
+            // Initialize JSONEditor
+            const options = {
+                mode: 'view',
+                modes: ['view', 'form', 'code', 'tree'],
+                onError: (error) => {
+                    console.error(`[JSON-EDITOR] Error in ${environment} editor:`, error);
+                }
+            };
+
+            const editor = new JSONEditor(container, options);
+
+            // Set JSON data
+            editor.set(jsonData || {});
+
+            // Store editor reference for cleanup and copy functionality
+            if (environment === 'target') {
+                targetJsonEditor = editor;
+            } else if (environment === 'staging') {
+                stagingJsonEditor = editor;
+            }
+
+            console.log(`[MODAL] JSON editor initialized for ${environment}`);
+
+        } catch (error) {
+            console.error(`[MODAL] Failed to initialize JSON editor for ${environment}:`, error);
+            container.innerHTML = `
+                <div class="json-error">
+                    <p>❌ Failed to display JSON data</p>
+                    <pre>${JSON.stringify(responseData, null, 2)}</pre>
+                </div>
+            `;
+        }
+    }
+
+    // Update status indicator for environment
+    function updateStatusIndicator(environment, responseData) {
+        const statusIndicator = document.getElementById(`${environment}-status-indicator`);
+
+        if (statusIndicator) {
+            const statusCode = responseData.status_code;
+            const success = responseData.success;
+
+            let statusText = 'UNKNOWN';
+            let statusIcon = '❓';
+            let statusClass = 'pending';
+
+            if (success === true) {
+                statusText = 'SUCCESS';
+                statusIcon = '✅';
+                statusClass = 'success';
+            } else if (success === false) {
+                statusText = 'FAILED';
+                statusIcon = '❌';
+                statusClass = 'failed';
+            } else {
+                statusText = 'NO DATA';
+                statusIcon = '⚠️';
+                statusClass = 'pending';
+            }
+
+            const codeText = statusCode ? ` (${statusCode})` : '';
+            statusIndicator.textContent = `${statusIcon} ${statusText}${codeText}`;
+            statusIndicator.setAttribute('data-status', statusClass);
+        }
+    }
+
+    // Copy API response to clipboard
+    function copyApiResponse(environment) {
+        console.log(`[MODAL] Copying ${environment} response to clipboard`);
+
+        let editor = null;
+        if (environment === 'target') {
+            editor = targetJsonEditor;
+        } else if (environment === 'staging') {
+            editor = stagingJsonEditor;
+        }
+
+        if (editor) {
+            try {
+                const jsonData = editor.get();
+                const jsonString = JSON.stringify(jsonData, null, 2);
+
+                navigator.clipboard.writeText(jsonString).then(() => {
+                    showCopyFeedback(environment);
+                }).catch(err => {
+                    console.error('[MODAL] Failed to copy to clipboard:', err);
+                    // Fallback: try older clipboard API
+                    const textArea = document.createElement('textarea');
+                    textArea.value = jsonString;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showCopyFeedback(environment);
+                });
+            } catch (error) {
+                console.error('[MODAL] Failed to get JSON data:', error);
+            }
+        } else {
+            console.warn(`[MODAL] No JSON editor found for ${environment}`);
+        }
+    }
+
+    // Show copy feedback
+    function showCopyFeedback(environment) {
+        const btnSelector = environment === 'target'
+            ? '.copy-btn:first-child'
+            : '.copy-btn:nth-child(2)';
+
+        const btn = document.querySelector(btnSelector);
+        if (btn) {
+            const originalText = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            btn.style.background = '#28a745';
+            btn.style.color = 'white';
+            btn.style.borderColor = '#28a745';
+
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.style.borderColor = '';
+            }, 2000);
+        }
+    }
+
+    // Show modal loading state
+    function showModalLoading() {
+        const containers = ['target-json-container', 'staging-json-container'];
+        containers.forEach(id => {
+            const container = document.getElementById(id);
+            if (container) {
+                container.innerHTML = `
+                    <div class="json-loading">
+                        <div class="spinner"></div>
+                        <p>Loading API response...</p>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    // Hide modal loading state
+    function hideModalLoading() {
+        // Loading is hidden when displayApiComparison() completes
+    }
+
+    // Show modal error state
+    function showModalError(message) {
+        const containers = ['target-json-container', 'staging-json-container'];
+        containers.forEach(id => {
+            const container = document.getElementById(id);
+            if (container) {
+                container.innerHTML = `
+                    <div class="json-error">
+                        <p>❌ ${message}</p>
+                    </div>
+                `;
+            }
+        });
+    }
+
+    // Clean up JSON editors
+    function cleanupJsonEditors() {
+        if (targetJsonEditor) {
+            try {
+                targetJsonEditor.destroy();
+            } catch (e) {
+                console.warn('[MODAL] Error cleaning up target editor:', e);
+            }
+            targetJsonEditor = null;
+        }
+
+        if (stagingJsonEditor) {
+            try {
+                stagingJsonEditor.destroy();
+            } catch (e) {
+                console.warn('[MODAL] Error cleaning up staging editor:', e);
+            }
+            stagingJsonEditor = null;
+        }
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && apiComparisonModal && !apiComparisonModal.classList.contains('hidden')) {
+            closeApiComparisonModal();
+        }
+    });
+
+    // Make functions globally available
+    window.openApiComparison = openApiComparison;
+    window.closeApiComparisonModal = closeApiComparisonModal;
+    window.copyApiResponse = copyApiResponse;
 });

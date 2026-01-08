@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Execution - Internal Testing Portal</title>
     <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- JSONEditor Library for API response display -->
+    <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.10.0/dist/jsoneditor.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.10.0/dist/jsoneditor.min.js"></script>
 </head>
 <body>
     <header>
@@ -39,6 +43,69 @@
     <footer>
         <p>Internal Testing Portal v1.0.0 | Powered by FastAPI</p>
     </footer>
+
+    <!-- API Comparison Modal - 80% viewport -->
+    <div id="api-comparison-modal" class="modal-overlay hidden">
+      <div class="modal-content large-comparison-modal">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <h2>🔍 API Response Comparison</h2>
+          <div class="api-info">
+            <span class="api-step-badge" id="modal-api-step">LOADING...</span>
+            <span class="execution-context" id="modal-execution-context">Loading...</span>
+          </div>
+          <button class="modal-close-btn" onclick="closeApiComparisonModal()">&times;</button>
+        </div>
+
+        <!-- Comparison Panels Container -->
+        <div class="comparison-panels">
+          <!-- Target Environment Panel -->
+          <div class="response-panel target-panel">
+            <div class="panel-header">
+              <span class="env-badge target-badge">🎯 Target (<span id="target-env">DEV</span>)</span>
+              <span class="status-indicator" id="target-status-indicator">
+                ○ LOADING...
+              </span>
+            </div>
+            <div class="json-container" id="target-json-container">
+              <div class="json-loading">
+                <div class="spinner"></div>
+                <p>Loading API response...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Staging Environment Panel -->
+          <div class="response-panel staging-panel">
+            <div class="panel-header">
+              <span class="env-badge staging-badge">📦 Staging</span>
+              <span class="status-indicator" id="staging-status-indicator">
+                ○ LOADING...
+              </span>
+            </div>
+            <div class="json-container" id="staging-json-container">
+              <div class="json-loading">
+                <div class="spinner"></div>
+                <p>Loading API response...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button class="action-btn copy-btn" onclick="copyApiResponse('target')">
+            📋 Copy Target
+          </button>
+          <button class="action-btn copy-btn" onclick="copyApiResponse('staging')">
+            📋 Copy Staging
+          </button>
+          <button class="action-btn close-modal-btn" onclick="closeApiComparisonModal()">
+            ✕ Close
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script src="/static/js/common.js"></script>
     <script src="/static/js/execution.js"></script>
