@@ -1,9 +1,23 @@
+# Web Framework & Server
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+
+# Data Validation & Settings
 pydantic==2.5.0
 pydantic-settings==2.1.0
-python-dotenv==1.0.0
+
+# HTTP Client & Environment
 httpx==0.25.2
+python-dotenv==1.0.0
+
+# Comparison & Diff Utilities
 deepdiff==6.7.1
+
+# Testing Framework
 pytest==7.4.3
 pytest-asyncio==0.21.1
+
+# Additional Utilities (for future phases)
+# aiofiles>=23.0.0        # Async file operations
+# python-multipart>=0.0.6 # File uploads (if needed)
+# rich>=13.0.0           # Enhanced CLI output (optional)
